@@ -1,0 +1,337 @@
+"use client"
+
+import { useState } from "react"
+import Papa from "papaparse"
+import { supabase } from "@/lib/supabase"
+
+type CsvRow = {
+  [key: string]: string
+}
+
+function normalizeText(value: string | undefined | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+  return trimmed.length ? trimmed : null
+}
+
+function normalizeUpper(value: string | undefined | null): string {
+  return (value ?? "").trim().toUpperCase()
+}
+
+function parseNumber(value: string | undefined | null): number | null {
+  if (!value) return null
+  const cleaned = String(value).replace(/[^0-9.-]/g, "").trim()
+  if (!cleaned) return null
+  const parsed = Number(cleaned)
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+function parseDate(value: string | undefined | null): string | null {
+  if (!value) return null
+  const trimmed = value.trim()
+
+  // já está em YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed
+
+  // tenta MM/DD/YYYY
+  const usMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (usMatch) {
+    const [, mm, dd, yyyy] = usMatch
+    return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`
+  }
+
+  return null
+}
+
+function buildFingerprint(params: {
+  auctionDate: string | null
+  runNumber: string | null
+  year: number | null
+  make: string | null
+  model: string | null
+  odometer: number | null
+  bidPrice: number | null
+}) {
+  return [
+    params.auctionDate ?? "",
+    normalizeUpper(params.runNumber),
+    params.year ?? "",
+    normalizeUpper(params.make),
+    normalizeUpper(params.model),
+    params.odometer ?? "",
+    params.bidPrice ?? "",
+  ].join("|")
+}
+
+export default function ImportHistoryPage() {
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState("")
+  const [stats, setStats] = useState<{
+    read: number
+    existing: number
+    inserted: number
+  } | null>(null)
+  const [manualAuctionDate, setManualAuctionDate] = useState("")
+
+  async function handleFileUpload(file: File) {
+    setLoading(true)
+    setMessage("")
+    setStats(null)
+
+    Papa.parse<CsvRow>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const rows = results.data
+
+          if (!rows.length) {
+            setMessage("CSV vazio ou sem linhas válidas.")
+            setLoading(false)
+            return
+          }
+
+          const mappedRows = rows.map((row) => {
+            const auctionDate =
+              parseDate(manualAuctionDate) ||
+              parseDate(row["Sale Date"]) ||
+              parseDate(row["Auction Date"]) ||
+              null
+
+            const runNumber =
+              normalizeText(row["Run Number"]) ||
+              normalizeText(row["Run#"]) ||
+              normalizeText(row["Run"])
+
+            const year = parseNumber(row["Year"])
+            const make = normalizeText(row["Make"])
+            const model = normalizeText(row["Model"])
+            const style =
+              normalizeText(row["Style"]) ||
+              normalizeText(row["Body Style"]) ||
+              normalizeText(row["Trim"])
+
+            const odometer =
+              parseNumber(row["Odometer"]) ||
+              parseNumber(row["Mileage"]) ||
+              parseNumber(row["Miles"])
+
+            const color = normalizeText(row["Color"])
+            const lane = normalizeText(row["Lane"])
+
+            const cr =
+              parseNumber(row["CR"]) ||
+              parseNumber(row["Condition Report"])
+
+            const grade = parseNumber(row["Grade"])
+            const bidPrice =
+              parseNumber(row["Price"]) ||
+              parseNumber(row["Bid Price"]) ||
+              parseNumber(row["Sale Price"])
+
+            const fingerprint = buildFingerprint({
+              auctionDate,
+              runNumber,
+              year,
+              make,
+              model,
+              odometer,
+              bidPrice,
+            })
+
+            return {
+              auction_date: auctionDate,
+              run_number: runNumber,
+              lane,
+              year,
+              make,
+              model,
+              style,
+              odometer,
+              color,
+              cr,
+              grade,
+              bid_price: bidPrice,
+              import_fingerprint: fingerprint,
+            }
+          })
+
+          const validRows = mappedRows.filter(
+            (row) =>
+              row.auction_date &&
+              row.year &&
+              row.make &&
+              row.model &&
+              row.bid_price !== null
+          )
+
+          if (!validRows.length) {
+            setMessage(
+              "Nenhuma linha válida encontrada. Verifique Sale Date, Year, Make, Model e Price."
+            )
+            setLoading(false)
+            return
+          }
+
+          const fingerprints = Array.from(
+            new Set(
+              validRows
+                .map((row) => row.import_fingerprint)
+                .filter((fp): fp is string => typeof fp === "string" && fp.length > 0)
+            )
+          )
+
+          if (!fingerprints.length) {
+            setMessage("Nenhuma fingerprint válida encontrada para verificar duplicados.")
+            setLoading(false)
+            return
+          }
+
+          const existingSet = new Set<string>()
+          const chunkSize = 1000
+
+          for (let i = 0; i < fingerprints.length; i += chunkSize) {
+            const chunk = fingerprints.slice(i, i + chunkSize)
+            const { data: existingRows, error: existingError } = await supabase
+              .from("historical_sales")
+              .select("import_fingerprint")
+              .in("import_fingerprint", chunk)
+
+            if (existingError) {
+              console.error("Erro ao verificar duplicados:", existingError)
+              setMessage(
+                "Erro ao verificar duplicados: " +
+                  (existingError?.message ?? JSON.stringify(existingError) ?? String(existingError))
+              )
+              // Continua sem filtro de duplicados, para não bloquear a importação.
+              continue
+            }
+
+            const existingRowsArray = Array.isArray(existingRows) ? existingRows : []
+            for (const row of existingRowsArray) {
+              if (typeof row?.import_fingerprint === "string" && row.import_fingerprint.length > 0) {
+                existingSet.add(row.import_fingerprint)
+              }
+            }
+          }
+
+          const rowsToInsert = validRows.filter(
+            (row) => !existingSet.has(row.import_fingerprint)
+          )
+
+          if (!rowsToInsert.length) {
+            setStats({
+              read: rows.length,
+              existing: validRows.length,
+              inserted: 0,
+            })
+            setMessage("Todos os carros desse arquivo já existem na base.")
+            setLoading(false)
+            return
+          }
+
+          const auctionDateForRecord =
+            rowsToInsert[0].auction_date || new Date().toISOString().slice(0, 10)
+
+          const { data: auctionData, error: auctionError } = await supabase
+            .from("auctions")
+            .insert([
+              {
+                name: `Historical Auction ${auctionDateForRecord}`,
+                auction_date: auctionDateForRecord,
+                source_type: "historical",
+              },
+            ])
+            .select()
+            .single()
+
+          if (auctionError || !auctionData) {
+            console.error(auctionError)
+            setMessage("Erro ao criar registro do leilão histórico.")
+            setLoading(false)
+            return
+          }
+
+          const payload = rowsToInsert.map((row) => ({
+            auction_id: auctionData.id,
+            ...row,
+          }))
+
+          const { error: insertError } = await supabase
+            .from("historical_sales")
+            .insert(payload)
+
+          if (insertError) {
+            console.error(insertError)
+            setMessage("Erro ao inserir histórico.")
+            setLoading(false)
+            return
+          }
+
+          setStats({
+            read: rows.length,
+            existing: validRows.length - rowsToInsert.length,
+            inserted: rowsToInsert.length,
+          })
+          setMessage("Importação do histórico concluída com sucesso.")
+        } catch (err) {
+          console.error(err)
+          setMessage("Erro inesperado ao importar histórico.")
+        } finally {
+          setLoading(false)
+        }
+      },
+      error: (error) => {
+        console.error(error)
+        setMessage("Erro ao ler o CSV.")
+        setLoading(false)
+      },
+    })
+  }
+
+  return (
+    <div style={{ padding: 30, maxWidth: 900 }}>
+      <h1>Import Historical Auction</h1>
+      <p>
+        Importe os CSVs dos leilões passados. O sistema verifica duplicados antes
+        de inserir.
+      </p>
+
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: "block", marginBottom: 6 }}>
+          Data manual do leilão (opcional)
+        </label>
+        <input
+          type="date"
+          value={manualAuctionDate}
+          onChange={(e) => setManualAuctionDate(e.target.value)}
+        />
+        <p style={{ fontSize: 12, color: "#666" }}>
+          Use isso se o CSV não tiver a coluna Sale Date ou se quiser forçar a
+          data do leilão.
+        </p>
+      </div>
+
+      <input
+        type="file"
+        accept=".csv"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleFileUpload(file)
+        }}
+      />
+
+      {loading && <p style={{ marginTop: 16 }}>Importando histórico...</p>}
+
+      {message && <p style={{ marginTop: 16 }}>{message}</p>}
+
+      {stats && (
+        <div style={{ marginTop: 20 }}>
+          <p>Linhas lidas: {stats.read}</p>
+          <p>Já existentes: {stats.existing}</p>
+          <p>Inseridas: {stats.inserted}</p>
+        </div>
+      )}
+    </div>
+  )
+}
