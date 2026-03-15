@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 
 type CarInspection = {
@@ -108,18 +109,23 @@ export default function CalculateMaxBidPage() {
   }
 
   return (
-    <div style={{ padding: 30, maxWidth: 800 }}>
-      <h1>Calculate Suggested Max Bid</h1>
-      <p>
+    <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <h1 className="text-2xl font-bold text-slate-900">Calculate Suggested Max Bid</h1>
+      <p className="text-sm text-slate-600">
         This will calculate the suggested max bid for the latest presale auction.
       </p>
 
-      <button onClick={calculateMaxBid} disabled={loading}>
+      <Button
+        onClick={calculateMaxBid}
+        disabled={loading}
+        variant="default"
+        size="lg"
+      >
         {loading ? "Calculating..." : "Run Max Bid Calculation"}
-      </button>
+      </Button>
 
-      {processed > 0 && <p>Cars processed: {processed}</p>}
-      {message && <p>{message}</p>}
+      {processed > 0 && <p className="text-sm text-slate-700">Cars processed: {processed}</p>}
+      {message && <p className="text-sm text-slate-700">{message}</p>}
     </div>
   )
 }

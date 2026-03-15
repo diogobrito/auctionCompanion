@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { PageHeader } from "@/components/page-header"
+import { MetricCard } from "@/components/metric-card"
 
 type CarInspection = {
   overall_condition: string | null
@@ -106,7 +108,11 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    loadDashboard()
+    const timer = window.setTimeout(() => {
+      loadDashboard()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [])
 
   const metrics = useMemo(() => {
@@ -157,122 +163,86 @@ export default function DashboardPage() {
   }, [cars])
 
   return (
-    <div style={{ padding: 30 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1>Dashboard</h1>
-        <Link href="/upcoming-auction">Go to Upcoming Auction</Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        description={
+          auction
+            ? `${auction.name} • ${auction.auction_date}`
+            : "Resumo dos dados do leilão"
+        }
+        actions={
+          <Link href="/upcoming-auction" className="rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">
+            Upcoming Auction
+          </Link>
+        }
+      />
 
-      {auction && (
-        <div style={{ marginBottom: 24 }}>
-          <p><strong>Auction:</strong> {auction.name}</p>
-          <p><strong>Date:</strong> {auction.auction_date}</p>
-        </div>
-      )}
-
-      {loading && <p>Loading dashboard...</p>}
-      {message && <p>{message}</p>}
+      {loading && <p className="rounded-md bg-slate-100 p-4 text-sm text-slate-600">Carregando dashboard...</p>}
+      {message && <p className="rounded-md bg-rose-50 p-4 text-sm text-rose-700">{message}</p>}
 
       {!loading && !message && (
         <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(220px, 1fr))",
-              gap: 16,
-              marginBottom: 24,
-            }}
-          >
-            <Card title="Total Cars" value={String(metrics.totalCars)} />
-            <Card
-              title="Avg Estimated Bid"
-              value={currency(metrics.avgEstimatedBid)}
-            />
-            <Card
-              title="Avg Total Cost"
-              value={currency(metrics.avgTotalCost)}
-            />
-            <Card title="Target" value={String(metrics.targetCount)} />
-            <Card title="Maybe" value={String(metrics.maybeCount)} />
-            <Card title="Avoid" value={String(metrics.avoidCount)} />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <MetricCard title="Total Cars" value={String(metrics.totalCars)} />
+            <MetricCard title="Avg Estimated Bid" value={currency(metrics.avgEstimatedBid)} />
+            <MetricCard title="Avg Total Cost" value={currency(metrics.avgTotalCost)} />
+            <MetricCard title="Target" value={String(metrics.targetCount)} />
+            <MetricCard title="Maybe" value={String(metrics.maybeCount)} />
+            <MetricCard title="Avoid" value={String(metrics.avoidCount)} />
           </div>
 
-          <section style={{ marginBottom: 32 }}>
-            <h2>Lane Distribution</h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, minmax(120px, 1fr))",
-                gap: 12,
-              }}
-            >
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Lane Distribution</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {Object.entries(metrics.laneCounts)
                 .sort((a, b) => a[0].localeCompare(b[0]))
                 .map(([lane, count]) => (
-                  <div
-                    key={lane}
-                    style={{
-                      border: "1px solid #ddd",
-                      borderRadius: 8,
-                      padding: 12,
-                    }}
-                  >
-                    <strong>Lane {lane}</strong>
-                    <div>{count} cars</div>
+                  <div key={lane} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-sm font-medium text-slate-700">Lane {lane}</p>
+                    <p className="text-2xl font-bold text-slate-900">{count}</p>
                   </div>
                 ))}
             </div>
           </section>
 
-          <section>
-            <h2>Top Opportunities</h2>
-            <div style={{ overflowX: "auto" }}>
-              <table
-                border={1}
-                cellPadding={6}
-                style={{ borderCollapse: "collapse", minWidth: 1000 }}
-              >
-                <thead>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-slate-900">Top Opportunities</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-[1000px] divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th>Run</th>
-                    <th>Lane</th>
-                    <th>Year</th>
-                    <th>Make</th>
-                    <th>Model</th>
-                    <th>Miles</th>
-                    <th>Estimated Bid</th>
-                    <th>Total Cost</th>
-                    <th>Max Bid</th>
-                    <th>Confidence</th>
-                    <th>Decision</th>
-                    <th>Condition</th>
+                    <th className="px-3 py-2">Run</th>
+                    <th className="px-3 py-2">Lane</th>
+                    <th className="px-3 py-2">Year</th>
+                    <th className="px-3 py-2">Make</th>
+                    <th className="px-3 py-2">Model</th>
+                    <th className="px-3 py-2">Miles</th>
+                    <th className="px-3 py-2">Estimated Bid</th>
+                    <th className="px-3 py-2">Total Cost</th>
+                    <th className="px-3 py-2">Max Bid</th>
+                    <th className="px-3 py-2">Confidence</th>
+                    <th className="px-3 py-2">Decision</th>
+                    <th className="px-3 py-2">Condition</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-200 text-slate-700">
                   {topOpportunities.map((car) => {
                     const inspection = car.car_inspections?.[0]
                     return (
-                      <tr key={car.id}>
-                        <td>{car.run_number}</td>
-                        <td>{car.lane}</td>
-                        <td>{car.year}</td>
-                        <td>{car.make}</td>
-                        <td>{car.model}</td>
-                        <td>{car.odometer}</td>
-                        <td>{car.estimated_bid ? currency(car.estimated_bid) : "-"}</td>
-                        <td>
-                          {car.estimated_total_cost
-                            ? currency(car.estimated_total_cost)
-                            : "-"}
-                        </td>
-                        <td>
-                          {car.suggested_max_bid
-                            ? currency(car.suggested_max_bid)
-                            : "-"}
-                        </td>
-                        <td>{car.confidence || "-"}</td>
-                        <td>{car.decision || "-"}</td>
-                        <td>{inspection?.overall_condition || "-"}</td>
+                      <tr key={car.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-2">{car.run_number || "-"}</td>
+                        <td className="px-3 py-2">{car.lane || "-"}</td>
+                        <td className="px-3 py-2">{car.year || "-"}</td>
+                        <td className="px-3 py-2">{car.make || "-"}</td>
+                        <td className="px-3 py-2">{car.model || "-"}</td>
+                        <td className="px-3 py-2">{car.odometer ?? "-"}</td>
+                        <td className="px-3 py-2">{car.estimated_bid ? currency(car.estimated_bid) : "-"}</td>
+                        <td className="px-3 py-2">{car.estimated_total_cost ? currency(car.estimated_total_cost) : "-"}</td>
+                        <td className="px-3 py-2">{car.suggested_max_bid ? currency(car.suggested_max_bid) : "-"}</td>
+                        <td className="px-3 py-2">{car.confidence || "-"}</td>
+                        <td className="px-3 py-2">{car.decision || "-"}</td>
+                        <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
                       </tr>
                     )
                   })}
@@ -282,22 +252,6 @@ export default function DashboardPage() {
           </section>
         </>
       )}
-    </div>
-  )
-}
-
-function Card({ title, value }: { title: string; value: string }) {
-  return (
-    <div
-      style={{
-        border: "1px solid #ddd",
-        borderRadius: 10,
-        padding: 16,
-        background: "#fff",
-      }}
-    >
-      <div style={{ fontSize: 14, color: "#666", marginBottom: 8 }}>{title}</div>
-      <div style={{ fontSize: 28, fontWeight: 700 }}>{value}</div>
     </div>
   )
 }

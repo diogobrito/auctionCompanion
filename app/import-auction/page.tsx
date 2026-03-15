@@ -122,22 +122,23 @@ export default function ImportAuctionPage() {
   }
 
   return (
-    <div style={{ padding: 30, maxWidth: 800 }}>
-      <h1>Import Upcoming Auction</h1>
-      <p>Selecione o CSV do próximo leilão para importar os carros.</p>
+    <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <h1 className="text-2xl font-bold text-slate-900">Import Upcoming Auction</h1>
+      <p className="text-sm text-slate-600">Selecione o CSV do próximo leilão para importar os carros.</p>
 
       <input
         type="file"
         accept=".csv"
+        className="block w-full rounded-md border border-slate-300 bg-white p-2 text-sm text-slate-700"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) handleFileUpload(file)
         }}
       />
 
-      {loading && <p>Importando arquivo...</p>}
-      {!!previewCount && !loading && <p>Linhas lidas: {previewCount}</p>}
-      {!!message && <p>{message}</p>}
+      {loading && <p className="text-sm text-slate-600">Importando arquivo...</p>}
+      {!!previewCount && !loading && <p className="text-sm text-slate-600">Linhas lidas: {previewCount}</p>}
+      {!!message && <p className="text-sm text-slate-600">{message}</p>}
     </div>
   )
 }

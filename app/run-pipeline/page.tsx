@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 
 type AuctionCar = {
@@ -155,8 +156,11 @@ export default function RunPipelinePage() {
         let estimatedBidMax: number | null = null
         let confidence: "High" | "Medium" | "Low" | null = null
 
-        if (car.year && car.make && car.model) {
-          let comps = (historicalSales as HistoricalSale[]).filter(
+        let comps: HistoricalSale[] = []
+
+        if (car.make && car.model) {
+          // 1) ano/make/model/odometer
+          comps = (historicalSales as HistoricalSale[]).filter(
             (sale) =>
               sale.year === car.year &&
               sale.make?.toUpperCase() === car.make?.toUpperCase() &&
@@ -165,19 +169,19 @@ export default function RunPipelinePage() {
               sale.bid_price !== null
           )
 
-          if (comps.length < 3) {
+          // 2) same year + same make/model, any mileage
+          if (comps.length < 3 && car.year) {
             comps = (historicalSales as HistoricalSale[]).filter(
               (sale) =>
-                sale.year !== null &&
-                Math.abs(sale.year - car.year!) <= 1 &&
+                sale.year === car.year &&
                 sale.make?.toUpperCase() === car.make?.toUpperCase() &&
                 sale.model?.toUpperCase() === car.model?.toUpperCase() &&
-                sameMileageRange(sale.odometer, car.odometer) &&
                 sale.bid_price !== null
             )
           }
 
-          if (comps.length < 3) {
+          // 3) similar years (+-2) with make/model
+          if (comps.length < 3 && car.year) {
             comps = (historicalSales as HistoricalSale[]).filter(
               (sale) =>
                 sale.year !== null &&
@@ -188,6 +192,7 @@ export default function RunPipelinePage() {
             )
           }
 
+          // 4) make/model only
           if (comps.length < 3) {
             comps = (historicalSales as HistoricalSale[]).filter(
               (sale) =>
@@ -197,16 +202,27 @@ export default function RunPipelinePage() {
             )
           }
 
-          const prices = comps
-            .map((sale) => sale.bid_price)
-            .filter((price): price is number => price !== null)
+          // 5) fallback broader estimate (mesma marca ou modelo se nada encontrado)
+          if (comps.length === 0) {
+            comps = (historicalSales as HistoricalSale[]).filter(
+              (sale) =>
+                (sale.make?.toUpperCase() === car.make?.toUpperCase() ||
+                  sale.model?.toUpperCase() === car.model?.toUpperCase() ||
+                  sale.year === car.year) &&
+                sale.bid_price !== null
+            )
+          }
+        }
+
+        const prices = comps
+          .map((sale) => sale.bid_price)
+          .filter((price): price is number => price !== null)
 
           const stats = calculateStats(prices)
           estimatedBid = stats.avg
           estimatedBidMin = stats.min
           estimatedBidMax = stats.max
           confidence = getConfidence(prices.length)
-        }
 
         const auctionFee = calculateAuctionFee(estimatedBid)
         const estimatedTotalCost =
@@ -224,21 +240,27 @@ export default function RunPipelinePage() {
             ? Math.max(0, estimatedBid - repairEstimate - riskBuffer)
             : null
 
+        const updatePayload = {
+          estimated_bid: estimatedBid,
+          estimated_bid_min: estimatedBidMin,
+          estimated_bid_max: estimatedBidMax,
+          confidence,
+          auction_fee: auctionFee,
+          estimated_total_cost: estimatedTotalCost,
+          suggested_max_bid: suggestedMaxBid,
+        }
+
         const { error: updateError } = await supabase
           .from("auction_cars")
-          .update({
-            estimated_bid: estimatedBid,
-            estimated_bid_min: estimatedBidMin,
-            estimated_bid_max: estimatedBidMax,
-            confidence,
-            auction_fee: auctionFee,
-            estimated_total_cost: estimatedTotalCost,
-            suggested_max_bid: suggestedMaxBid,
-          })
+          .update(updatePayload)
           .eq("id", car.id)
 
-        if (updateError) {
+        // Supabase can sometimes provide an empty error object; só trate como erro quando há conteúdo.
+        if (updateError && Object.keys(updateError).length > 0) {
           console.error("Update error for car:", car.id, updateError)
+          setMessage((prev) => `${prev} Error updating car ${car.id}.`)
+        } else if (updateError) {
+          console.warn("Update call responded with empty error for car:", car.id, updateError)
         }
 
         setProcessed((prev) => prev + 1)
@@ -254,14 +276,12 @@ export default function RunPipelinePage() {
   }
 
   return (
-    <div style={{ padding: 30, maxWidth: 900 }}>
-      <h1>Run Auction Pipeline</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <h1 className="text-2xl font-bold text-slate-900">Run Auction Pipeline</h1>
 
-      <p>
-        This will process the latest presale auction and calculate:
-      </p>
+      <p className="text-sm text-slate-600">This will process the latest presale auction and calculate:</p>
 
-      <ul>
+      <ul className="list-disc pl-5 text-sm text-slate-600">
         <li>Estimated bid</li>
         <li>Bid range</li>
         <li>Confidence</li>
@@ -270,12 +290,17 @@ export default function RunPipelinePage() {
         <li>Suggested max bid</li>
       </ul>
 
-      <button onClick={runPipeline} disabled={loading}>
+      <Button
+        onClick={runPipeline}
+        disabled={loading}
+        variant="default"
+        size="lg"
+      >
         {loading ? "Running pipeline..." : "Run Full Pipeline"}
-      </button>
+      </Button>
 
-      {processed > 0 && <p>Cars processed: {processed}</p>}
-      {message && <p>{message}</p>}
+      {processed > 0 && <p className="text-sm text-slate-700">Cars processed: {processed}</p>}
+      {message && <p className="text-sm text-slate-700">{message}</p>}
     </div>
   )
 }

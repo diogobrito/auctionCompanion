@@ -63,6 +63,32 @@ function buildFingerprint(params: {
   ].join("|")
 }
 
+function isEmptySupabaseError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false
+
+  // Se for um erro com mensagem em branco ou sem propriedades enumeráveis
+  const errorObj = error as Record<string, unknown>
+  const message =
+    typeof (errorObj as { message?: unknown }).message === "string"
+      ? String((errorObj as { message?: unknown }).message).trim()
+      : ""
+
+  const stringified = (() => {
+    try {
+      return JSON.stringify(errorObj)
+    } catch {
+      return ""
+    }
+  })()
+
+  return (
+    Object.keys(errorObj).length === 0 ||
+    message === "" ||
+    stringified === "{}" ||
+    stringified === ""
+  )
+}
+
 export default function ImportHistoryPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
@@ -198,11 +224,18 @@ export default function ImportHistoryPage() {
               .in("import_fingerprint", chunk)
 
             if (existingError) {
-              console.error("Erro ao verificar duplicados:", existingError)
-              setMessage(
-                "Erro ao verificar duplicados: " +
-                  (existingError?.message ?? JSON.stringify(existingError) ?? String(existingError))
-              )
+              if (isEmptySupabaseError(existingError)) {
+                console.warn("Erro ao verificar duplicados retornou objeto vazio para chunk", chunk, existingError)
+              } else {
+                const existingErrorMessage =
+                  (existingError as { message?: unknown }).message ?? ""
+                const effectiveErrorMessage = String(existingErrorMessage).trim() ||
+                  (JSON.stringify(existingError) || "")
+
+                console.error("Erro ao verificar duplicados:", existingError)
+                setMessage("Erro ao verificar duplicados: " + effectiveErrorMessage)
+              }
+
               // Continua sem filtro de duplicados, para não bloquear a importação.
               continue
             }
@@ -215,9 +248,18 @@ export default function ImportHistoryPage() {
             }
           }
 
-          const rowsToInsert = validRows.filter(
+          let rowsToInsert = validRows.filter(
             (row) => !existingSet.has(row.import_fingerprint)
           )
+
+          // Deduplica fichas do mesmo arquivo antes da inserção (protege de rows com mesmo import_fingerprint).
+          const deduped = new Map<string, typeof rowsToInsert[number]>()
+          for (const row of rowsToInsert) {
+            if (row.import_fingerprint && !deduped.has(row.import_fingerprint)) {
+              deduped.set(row.import_fingerprint, row)
+            }
+          }
+          rowsToInsert = Array.from(deduped.values())
 
           if (!rowsToInsert.length) {
             setStats({
@@ -259,13 +301,22 @@ export default function ImportHistoryPage() {
 
           const { error: insertError } = await supabase
             .from("historical_sales")
-            .insert(payload)
+            .upsert(payload, { onConflict: "import_fingerprint" })
 
           if (insertError) {
-            console.error(insertError)
-            setMessage("Erro ao inserir histórico.")
-            setLoading(false)
-            return
+            if (isEmptySupabaseError(insertError)) {
+              console.warn("Erro ao inserir histórico retornou objeto vazio", insertError)
+            } else {
+              const insertErrorMessage =
+                (insertError as { message?: unknown }).message ?? ""
+              const effectiveInsertErrorMessage = String(insertErrorMessage).trim() ||
+                JSON.stringify(insertError)
+
+              console.error(insertError)
+              setMessage("Erro ao inserir histórico: " + effectiveInsertErrorMessage)
+              setLoading(false)
+              return
+            }
           }
 
           setStats({
@@ -290,23 +341,22 @@ export default function ImportHistoryPage() {
   }
 
   return (
-    <div style={{ padding: 30, maxWidth: 900 }}>
-      <h1>Import Historical Auction</h1>
-      <p>
+    <div className="mx-auto w-full max-w-4xl space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <h1 className="text-2xl font-bold text-slate-900">Import Historical Auction</h1>
+      <p className="text-sm text-slate-600">
         Importe os CSVs dos leilões passados. O sistema verifica duplicados antes
         de inserir.
       </p>
 
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ display: "block", marginBottom: 6 }}>
-          Data manual do leilão (opcional)
-        </label>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-slate-700">Data manual do leilão (opcional)</label>
         <input
           type="date"
           value={manualAuctionDate}
           onChange={(e) => setManualAuctionDate(e.target.value)}
+          className="w-full rounded-md border border-slate-300 p-2 text-sm"
         />
-        <p style={{ fontSize: 12, color: "#666" }}>
+        <p className="text-xs text-slate-500">
           Use isso se o CSV não tiver a coluna Sale Date ou se quiser forçar a
           data do leilão.
         </p>
@@ -315,18 +365,19 @@ export default function ImportHistoryPage() {
       <input
         type="file"
         accept=".csv"
+        className="block w-full rounded-md border border-slate-300 bg-white p-2 text-sm text-slate-700"
         onChange={(e) => {
           const file = e.target.files?.[0]
           if (file) handleFileUpload(file)
         }}
       />
 
-      {loading && <p style={{ marginTop: 16 }}>Importando histórico...</p>}
+      {loading && <p className="mt-4 text-sm text-slate-600">Importando histórico...</p>}
 
-      {message && <p style={{ marginTop: 16 }}>{message}</p>}
+      {message && <p className="mt-4 text-sm text-slate-600">{message}</p>}
 
       {stats && (
-        <div style={{ marginTop: 20 }}>
+        <div className="mt-5 space-y-1 text-sm font-medium text-slate-700">
           <p>Linhas lidas: {stats.read}</p>
           <p>Já existentes: {stats.existing}</p>
           <p>Inseridas: {stats.inserted}</p>

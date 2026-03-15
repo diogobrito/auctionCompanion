@@ -1,20 +1,24 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { PageHeader } from "@/components/page-header"
+import { MetricCard } from "@/components/metric-card"
+import {
+  DecisionBadge,
+  ConfidenceBadge,
+  ConditionBadge,
+} from "@/components/status-badges"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 
 type CarInspection = {
   id: string
   auction_car_id: string
-  inspection_valid: boolean | null
-  dashboard_lights: string | null
-  tires_condition: string | null
-  body_condition: string | null
-  engine_functioning: string | null
-  interior_cleanliness: string | null
   overall_condition: string | null
   repair_estimate: number | null
-  personal_notes: string | null
 }
 
 type AuctionCar = {
@@ -26,6 +30,7 @@ type AuctionCar = {
   make: string | null
   model: string | null
   style: string | null
+  vin: string | null
   odometer: number | null
   color: string | null
   cr: number | null
@@ -48,11 +53,30 @@ type Auction = {
   source_type: string
 }
 
+
+
+function currency(value: number | null) {
+  if (value === null || value === undefined) return "-"
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
 export default function UpcomingAuctionPage() {
   const [auction, setAuction] = useState<Auction | null>(null)
   const [cars, setCars] = useState<AuctionCar[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
+  const [search, setSearch] = useState("")
+  const [minBid, setMinBid] = useState("")
+  const [maxBid, setMaxBid] = useState("")
+  const [minMileage, setMinMileage] = useState("")
+  const [maxMileage, setMaxMileage] = useState("")
+  const [minYear, setMinYear] = useState("")
+  const [maxYear, setMaxYear] = useState("")
+  const [laneFilter, setLaneFilter] = useState<string[]>([])
 
   async function loadLatestPresaleAuction() {
     setLoading(true)
@@ -102,7 +126,11 @@ export default function UpcomingAuctionPage() {
   }
 
   useEffect(() => {
-    loadLatestPresaleAuction()
+    const timer = window.setTimeout(() => {
+      loadLatestPresaleAuction()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [])
 
   async function updateDecision(id: string, decision: string) {
@@ -159,20 +187,13 @@ export default function UpcomingAuctionPage() {
 
       setCars((prev) =>
         prev.map((item) =>
-          item.id === carId
-            ? { ...item, car_inspections: [data] }
-            : item
+          item.id === carId ? { ...item, car_inspections: [data] } : item
         )
       )
     } else {
       const { data, error } = await supabase
         .from("car_inspections")
-        .insert([
-          {
-            auction_car_id: carId,
-            ...updates,
-          },
-        ])
+        .insert([{ auction_car_id: carId, ...updates }])
         .select()
         .single()
 
@@ -183,138 +204,354 @@ export default function UpcomingAuctionPage() {
 
       setCars((prev) =>
         prev.map((item) =>
-          item.id === carId
-            ? { ...item, car_inspections: [data] }
-            : item
+          item.id === carId ? { ...item, car_inspections: [data] } : item
         )
       )
     }
   }
 
+  const laneOptions = useMemo(() => {
+    const uniqueLanes = Array.from(
+      new Set(cars.map((car) => car.lane?.trim()).filter((lane): lane is string => Boolean(lane)))
+    )
+    return uniqueLanes.sort((a, b) => a.localeCompare(b))
+  }, [cars])
+
+  const filteredCars = useMemo(() => {
+    const min = Number(minBid)
+    const max = Number(maxBid)
+    const hasMin = minBid.trim() !== "" && !Number.isNaN(min)
+    const hasMax = maxBid.trim() !== "" && !Number.isNaN(max)
+
+    const minM = Number(minMileage)
+    const maxM = Number(maxMileage)
+    const hasMinMiles = minMileage.trim() !== "" && !Number.isNaN(minM)
+    const hasMaxMiles = maxMileage.trim() !== "" && !Number.isNaN(maxM)
+
+    const minY = Number(minYear)
+    const maxY = Number(maxYear)
+    const hasMinYear = minYear.trim() !== "" && !Number.isNaN(minY)
+    const hasMaxYear = maxYear.trim() !== "" && !Number.isNaN(maxY)
+
+    const activeLanes = laneFilter.map((lane) => lane.trim().toLowerCase()).filter(Boolean)
+    const hasLaneFilter = activeLanes.length > 0
+
+    return cars.filter((car) => {
+      const matchesSearch =
+        `${car.year ?? ""} ${car.make ?? ""} ${car.model ?? ""} ${car.style ?? ""}`
+          .toLowerCase()
+          .includes(search.toLowerCase())
+
+      const bidValue = car.estimated_bid
+      const matchesMin = !hasMin || (bidValue !== null && bidValue >= min)
+      const matchesMax = !hasMax || (bidValue !== null && bidValue <= max)
+
+      const milesValue = car.odometer
+      const matchesMinMiles = !hasMinMiles || (milesValue !== null && milesValue >= minM)
+      const matchesMaxMiles = !hasMaxMiles || (milesValue !== null && milesValue <= maxM)
+
+      const yearValue = car.year
+      const matchesMinYear = !hasMinYear || (yearValue !== null && yearValue >= minY)
+      const matchesMaxYear = !hasMaxYear || (yearValue !== null && yearValue <= maxY)
+
+      const carLane = car.lane?.trim().toLowerCase() || ""
+      const matchesLane =
+        !hasLaneFilter ||
+        (carLane && activeLanes.includes(carLane))
+
+      return (
+        matchesSearch &&
+        matchesMin &&
+        matchesMax &&
+        matchesMinMiles &&
+        matchesMaxMiles &&
+        matchesMinYear &&
+        matchesMaxYear &&
+        matchesLane
+      )
+    })
+  }, [cars, search, minBid, maxBid, minMileage, maxMileage, minYear, maxYear, laneFilter])
+
+  const metrics = useMemo(() => {
+    const targetCount = cars.filter((car) => car.decision === "Target").length
+    const maybeCount = cars.filter((car) => car.decision === "Maybe").length
+    const avoidCount = cars.filter((car) => car.decision === "Avoid").length
+
+    const avgBid =
+      cars
+        .map((car) => car.estimated_bid)
+        .filter((v): v is number => v !== null)
+        .reduce((sum, v, _, arr) => sum + v / arr.length, 0) || 0
+
+    return {
+      totalCars: cars.length,
+      targetCount,
+      maybeCount,
+      avoidCount,
+      avgBid,
+    }
+  }, [cars])
+
   return (
-    <div style={{ padding: 30 }}>
-      <h1>Upcoming Auction</h1>
+    <div className="space-y-6">
+      <PageHeader
+        title="Upcoming Auction"
+        description={
+          auction
+            ? `${auction.name} • ${auction.auction_date}`
+            : "Review and inspect cars for the next auction"
+        }
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link href="/dashboard">Dashboard</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/run-pipeline">Run Pipeline</Link>
+            </Button>
+          </>
+        }
+      />
 
-      {auction && (
-        <div style={{ marginBottom: 20 }}>
-          <p><strong>Auction:</strong> {auction.name}</p>
-          <p><strong>Date:</strong> {auction.auction_date}</p>
-          <p><strong>Total cars:</strong> {cars.length}</p>
-        </div>
-      )}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Total Cars" value={String(metrics.totalCars)} />
+        <MetricCard title="Avg Estimated Bid" value={currency(Math.round(metrics.avgBid))} />
+        <MetricCard title="Target Cars" value={String(metrics.targetCount)} />
+        <MetricCard title="Avoid Cars" value={String(metrics.avoidCount)} />
+      </div>
 
-      {loading && <p>Loading cars...</p>}
-      {message && <p>{message}</p>}
+      <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium text-slate-700 shadow-sm">
+        Carros filtrados: {filteredCars.length} de {cars.length} totais
+      </div>
 
-      {!loading && cars.length > 0 && (
-        <div style={{ overflowX: "auto" }}>
-          <table
-            border={1}
-            cellPadding={6}
-            style={{ borderCollapse: "collapse", minWidth: 1400 }}
-          >
-            <thead>
-              <tr>
-                <th>Run</th>
-                <th>Lane</th>
-                <th>Year</th>
-                <th>Make</th>
-                <th>Model</th>
-                <th>Style</th>
-                <th>Miles</th>
-                <th>CR</th>
-                <th>Decision</th>
-                <th>Notes</th>
-                <th>Overall Condition</th>
-                <th>Repair Estimate</th>
-                <th>Estimated Bid</th>
-                <th>Min</th>
-                <th>Max</th>
-                <th>Fee</th>
-                <th>Total Cost</th>
-                <th>Confidence</th>
-                <th>Suggested Max Bid</th>
-              </tr>
-            </thead>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="grid gap-3 md:grid-cols-6">
+            <Input
+              placeholder="Pesquisar por ano, marca, modelo..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="col-span-6 md:col-span-2 w-full"
+            />
+            <Input
+              type="number"
+              placeholder="Est. Bid mínimo"
+              value={minBid}
+              onChange={(e) => setMinBid(e.target.value)}
+              className="col-span-3 md:col-span-1 w-full"
+            />
+            <Input
+              type="number"
+              placeholder="Est. Bid máximo"
+              value={maxBid}
+              onChange={(e) => setMaxBid(e.target.value)}
+              className="col-span-3 md:col-span-1 w-full"
+            />
+            <Input
+              type="number"
+              placeholder="Ano mínimo"
+              value={minYear}
+              onChange={(e) => setMinYear(e.target.value)}
+              className="col-span-3 md:col-span-1 w-full"
+            />
+            <Input
+              type="number"
+              placeholder="Ano máximo"
+              value={maxYear}
+              onChange={(e) => setMaxYear(e.target.value)}
+              className="col-span-3 md:col-span-1 w-full"
+            />
+            <Input
+              type="number"
+              placeholder="Milhas mínimas"
+              value={minMileage}
+              onChange={(e) => setMinMileage(e.target.value)}
+              className="col-span-3 md:col-span-1 w-full"
+            />
+            <Input
+              type="number"
+              placeholder="Milhas máximas"
+              value={maxMileage}
+              onChange={(e) => setMaxMileage(e.target.value)}
+              className="col-span-3 md:col-span-1 w-full"
+            />
+            <div className="col-span-6 md:col-span-2 grid gap-1 rounded-md border border-slate-300 bg-white p-2 text-sm">
+              <p className="text-xs font-medium">Filtro de lane:</p>
+              {laneOptions.length === 0 ? (
+                <span className="text-xs text-slate-500">Sem lanes disponíveis</span>
+              ) : (
+                laneOptions.map((lane) => (
+                  <label key={lane} className="inline-flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      value={lane}
+                      checked={laneFilter.includes(lane)}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setLaneFilter((prev) =>
+                          prev.includes(value)
+                            ? prev.filter((item) => item !== value)
+                            : [...prev, value]
+                        )
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                    />
+                    {lane}
+                  </label>
+                ))
+              )}
+            </div>
+            <p className="col-span-6 text-xs text-amber-700">
+              *Estimativa de baixa confiança (poucos comparáveis ou dados incompletos) é sinalizada em amarelo.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
-            <tbody>
-              {cars.map((car) => {
-                const inspection = car.car_inspections?.[0]
+      {loading && <p className="text-sm text-muted-foreground">Loading cars...</p>}
+      {message && <p className="text-sm text-red-600">{message}</p>}
 
-                return (
-                  <tr key={car.id}>
-                    <td>{car.run_number}</td>
-                    <td>{car.lane}</td>
-                    <td>{car.year}</td>
-                    <td>{car.make}</td>
-                    <td>{car.model}</td>
-                    <td>{car.style}</td>
-                    <td>{car.odometer}</td>
-                    <td>{car.cr}</td>
+      {!loading && filteredCars.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="space-y-4">
+              <div className="space-y-3 p-4 sm:hidden">
+                {filteredCars.map((car) => {
+                  const inspection = car.car_inspections?.[0]
+                  return (
+                    <div key={car.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                      <div className="mb-2 flex items-center justify-between text-sm font-semibold">
+                        <span>{car.year} {car.make} {car.model}</span>
+                        <span>{car.run_number || "-"}</span>
+                      </div>
+                      <div className="grid gap-1 text-xs text-slate-700">
+                        <div>VIN: {car.vin || "-"}</div>
+                        <div>Miles: {car.odometer?.toLocaleString() || "-"}</div>
+                        <div>Est. Bid: {currency(car.estimated_bid)}</div>
+                        <div>Total Cost: {currency(car.estimated_total_cost)}</div>
+                        <div>Max Bid: {currency(car.suggested_max_bid)}</div>
+                        <div>Decision: <DecisionBadge value={car.decision} /></div>
+                        <div>Condition: <ConditionBadge value={inspection?.overall_condition || null} /></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
 
-                    <td>
-                      <select
-                        value={car.decision || "Maybe"}
-                        onChange={(e) => updateDecision(car.id, e.target.value)}
-                      >
-                        <option value="Target">Target</option>
-                        <option value="Maybe">Maybe</option>
-                        <option value="Avoid">Avoid</option>
-                      </select>
-                    </td>
-
-                    <td>
-                      <input
-                        defaultValue={car.notes || ""}
-                        onBlur={(e) => updateNotes(car.id, e.target.value)}
-                        style={{ minWidth: 180 }}
-                      />
-                    </td>
-
-                    <td>
-                      <select
-                        value={inspection?.overall_condition || ""}
-                        onChange={(e) =>
-                          upsertInspection(car.id, {
-                            overall_condition: e.target.value || null,
-                          })
-                        }
-                      >
-                        <option value="">Select</option>
-                        <option value="poor">Poor</option>
-                        <option value="ok">OK</option>
-                        <option value="good">Good</option>
-                        <option value="excellent">Excellent</option>
-                      </select>
-                    </td>
-
-                    <td>
-                      <input
-                        type="number"
-                        defaultValue={inspection?.repair_estimate ?? ""}
-                        onBlur={(e) =>
-                          upsertInspection(car.id, {
-                            repair_estimate: e.target.value
-                              ? Number(e.target.value)
-                              : null,
-                          })
-                        }
-                        style={{ width: 100 }}
-                      />
-                    </td>
-                    <td>{car.estimated_bid ?? "-"}</td>
-                    <td>{car.estimated_bid_min ?? "-"}</td>
-                    <td>{car.estimated_bid_max ?? "-"}</td>
-                    <td>{car.auction_fee ?? "-"}</td>
-                    <td>{car.estimated_total_cost ?? "-"}</td>
-                    <td>{car.confidence ?? "-"}</td>
-                    <td>{car.suggested_max_bid ?? "-"}</td>
+              <div className="hidden sm:block overflow-x-auto pb-2">
+                <table className="w-full table-auto text-sm">
+                  <thead className="border-b bg-muted/50">
+                  <tr className="text-left">
+                    <th className="px-4 py-3 font-medium">Run</th>
+                    <th className="px-4 py-3 font-medium">Vehicle</th>
+                    <th className="px-4 py-3 font-medium">VIN</th>
+                    <th className="px-4 py-3 font-medium">Miles</th>
+                    <th className="px-4 py-3 font-medium">Est. Bid</th>
+                    <th className="px-4 py-3 font-medium">Total Cost</th>
+                    <th className="px-4 py-3 font-medium">Max Bid</th>
+                    <th className="px-4 py-3 font-medium">Confidence</th>
+                    <th className="px-4 py-3 font-medium">Decision</th>
+                    <th className="px-4 py-3 font-medium">Condition</th>
+                    <th className="px-4 py-3 font-medium">Repair</th>
+                    <th className="px-4 py-3 font-medium">Notes</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+
+                </thead>
+
+                <tbody>
+                  {filteredCars.map((car) => {
+                    const inspection = car.car_inspections?.[0]
+
+                    return (
+                      <tr
+                      key={car.id}
+                      className={`border-b transition-colors hover:bg-muted/40 ${car.confidence === "Low" ? "bg-amber-50/70" : ""}`}
+                    >
+                        <td className="px-4 py-3">{car.run_number}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">
+                            {car.year} {car.make} {car.model}
+                          </div>
+                          <div className="text-xs text-muted-foreground">{car.style || "-"}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{car.vin || "-"}</td>
+                        <td className="px-4 py-3">{car.odometer?.toLocaleString() || "-"}</td>
+                        <td className="px-4 py-3 font-medium">
+                          {currency(car.estimated_bid)}
+                          {car.confidence === "Low" ? " *" : ""}
+                        </td>
+                        <td className="px-4 py-3">
+                          {currency(car.estimated_total_cost)}
+                          {car.confidence === "Low" ? " *" : ""}
+                        </td>
+                        <td className="px-4 py-3">{currency(car.suggested_max_bid)}</td>
+                        <td className="px-4 py-3">
+                          <ConfidenceBadge value={car.confidence} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="mb-2">
+                            <DecisionBadge value={car.decision} />
+                          </div>
+                          <select
+                            className="w-full rounded-md border border-slate-300 px-2 py-1"
+                            value={car.decision || "Maybe"}
+                            onChange={(e) => updateDecision(car.id, e.target.value)}
+                          >
+                            <option value="Target">Target</option>
+                            <option value="Maybe">Maybe</option>
+                            <option value="Avoid">Avoid</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="mb-2">
+                            <ConditionBadge value={inspection?.overall_condition || null} />
+                          </div>
+                          <select
+                            className="w-full rounded-md border border-slate-300 px-2 py-1"
+                            value={inspection?.overall_condition ?? "unknown"}
+                            onChange={(e) =>
+                              upsertInspection(car.id, {
+                                overall_condition: e.target.value === "unknown" ? null : e.target.value,
+                              })
+                            }
+                          >
+                            <option value="unknown">Unknown</option>
+                            <option value="poor">Poor</option>
+                            <option value="ok">OK</option>
+                            <option value="good">Good</option>
+                            <option value="excellent">Excellent</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            type="number"
+                            defaultValue={inspection?.repair_estimate ?? ""}
+                            onBlur={(e) =>
+                              upsertInspection(car.id, {
+                                repair_estimate: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              })
+                            }
+                            className="w-full min-w-[140px] max-w-[180px]"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <Input
+                            defaultValue={car.notes || ""}
+                            onBlur={(e) => updateNotes(car.id, e.target.value)}
+                            className="w-full min-w-[220px] max-w-[320px]"
+                          />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

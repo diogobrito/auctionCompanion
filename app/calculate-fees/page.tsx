@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 
 type AuctionCar = {
@@ -89,19 +90,24 @@ export default function CalculateFeesPage() {
   }
 
   return (
-    <div style={{ padding: 30, maxWidth: 800 }}>
-      <h1>Calculate Fees</h1>
-      <p>
+    <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <h1 className="text-2xl font-bold text-slate-900">Calculate Fees</h1>
+      <p className="text-sm text-slate-600">
         This will calculate auction fee and estimated total cost for the latest
         presale auction.
       </p>
 
-      <button onClick={calculateFees} disabled={loading}>
+      <Button
+        onClick={calculateFees}
+        disabled={loading}
+        variant="default"
+        size="lg"
+      >
         {loading ? "Calculating..." : "Run Fee Calculation"}
-      </button>
+      </Button>
 
-      {processed > 0 && <p>Cars processed: {processed}</p>}
-      {message && <p>{message}</p>}
+      {processed > 0 && <p className="text-sm text-slate-700">Cars processed: {processed}</p>}
+      {message && <p className="text-sm text-slate-700">{message}</p>}
     </div>
   )
 }
