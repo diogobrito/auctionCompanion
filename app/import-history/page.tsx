@@ -124,6 +124,12 @@ export default function ImportHistoryPage() {
               parseDate(row["Auction Date"]) ||
               null
 
+            const stock =
+              normalizeText(row["Stock"]) ||
+              normalizeText(row["STOCK"]) ||
+              normalizeText(row["Stock #"]) ||
+              normalizeText(row["Stock#"])
+
             const runNumber =
               normalizeText(row["Run Number"]) ||
               normalizeText(row["Run#"]) ||
@@ -167,6 +173,7 @@ export default function ImportHistoryPage() {
 
             return {
               auction_date: auctionDate,
+              stock,
               run_number: runNumber,
               lane,
               year,
@@ -184,6 +191,7 @@ export default function ImportHistoryPage() {
 
           const validRows = mappedRows.filter(
             (row) =>
+              row.stock &&
               row.auction_date &&
               row.year &&
               row.make &&
@@ -193,22 +201,22 @@ export default function ImportHistoryPage() {
 
           if (!validRows.length) {
             setMessage(
-              "Nenhuma linha válida encontrada. Verifique Sale Date, Year, Make, Model e Price."
+              "Nenhuma linha válida encontrada. Verifique Stock, Sale Date, Year, Make, Model e Price."
             )
             setLoading(false)
             return
           }
 
-          const fingerprints = Array.from(
+          const stocks = Array.from(
             new Set(
               validRows
-                .map((row) => row.import_fingerprint)
-                .filter((fp): fp is string => typeof fp === "string" && fp.length > 0)
+                .map((row) => row.stock)
+                .filter((stock): stock is string => typeof stock === "string" && stock.length > 0)
             )
           )
 
-          if (!fingerprints.length) {
-            setMessage("Nenhuma fingerprint válida encontrada para verificar duplicados.")
+          if (!stocks.length) {
+            setMessage("Nenhum Stock válido encontrado para verificar duplicados.")
             setLoading(false)
             return
           }
@@ -216,12 +224,12 @@ export default function ImportHistoryPage() {
           const existingSet = new Set<string>()
           const chunkSize = 1000
 
-          for (let i = 0; i < fingerprints.length; i += chunkSize) {
-            const chunk = fingerprints.slice(i, i + chunkSize)
+          for (let i = 0; i < stocks.length; i += chunkSize) {
+            const chunk = stocks.slice(i, i + chunkSize)
             const { data: existingRows, error: existingError } = await supabase
               .from("historical_sales")
-              .select("import_fingerprint")
-              .in("import_fingerprint", chunk)
+              .select("stock")
+              .in("stock", chunk)
 
             if (existingError) {
               if (isEmptySupabaseError(existingError)) {
@@ -232,7 +240,7 @@ export default function ImportHistoryPage() {
                 const effectiveErrorMessage = String(existingErrorMessage).trim() ||
                   (JSON.stringify(existingError) || "")
 
-                console.error("Erro ao verificar duplicados:", existingError)
+                console.error("Erro ao verificar duplicados por Stock:", existingError)
                 setMessage("Erro ao verificar duplicados: " + effectiveErrorMessage)
               }
 
@@ -242,21 +250,21 @@ export default function ImportHistoryPage() {
 
             const existingRowsArray = Array.isArray(existingRows) ? existingRows : []
             for (const row of existingRowsArray) {
-              if (typeof row?.import_fingerprint === "string" && row.import_fingerprint.length > 0) {
-                existingSet.add(row.import_fingerprint)
+              if (typeof row?.stock === "string" && row.stock.length > 0) {
+                existingSet.add(row.stock)
               }
             }
           }
 
           let rowsToInsert = validRows.filter(
-            (row) => !existingSet.has(row.import_fingerprint)
+            (row) => row.stock && !existingSet.has(row.stock)
           )
 
-          // Deduplica fichas do mesmo arquivo antes da inserção (protege de rows com mesmo import_fingerprint).
+          // Deduplica carros do mesmo arquivo antes da inserção usando Stock como identificador único.
           const deduped = new Map<string, typeof rowsToInsert[number]>()
           for (const row of rowsToInsert) {
-            if (row.import_fingerprint && !deduped.has(row.import_fingerprint)) {
-              deduped.set(row.import_fingerprint, row)
+            if (row.stock && !deduped.has(row.stock)) {
+              deduped.set(row.stock, row)
             }
           }
           rowsToInsert = Array.from(deduped.values())
@@ -301,7 +309,7 @@ export default function ImportHistoryPage() {
 
           const { error: insertError } = await supabase
             .from("historical_sales")
-            .upsert(payload, { onConflict: "import_fingerprint" })
+            .upsert(payload, { onConflict: "stock" })
 
           if (insertError) {
             if (isEmptySupabaseError(insertError)) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import ExcelJS from "exceljs"
 import { supabase } from "@/lib/supabase"
 import { PageHeader } from "@/components/page-header"
 import { MetricCard } from "@/components/metric-card"
@@ -62,6 +63,13 @@ function currency(value: number | null) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+function slugifyFilePart(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
 }
 
 export default function UpcomingAuctionPage() {
@@ -292,6 +300,72 @@ export default function UpcomingAuctionPage() {
     }
   }, [cars])
 
+  async function exportToXlsx() {
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet("Upcoming Auction", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    })
+
+    worksheet.columns = [
+      { header: "Row", key: "row", width: 8 },
+      { header: "Num", key: "num", width: 10 },
+      { header: "Year", key: "year", width: 8 },
+      { header: "Make", key: "make", width: 16 },
+      { header: "Model", key: "model", width: 24 },
+      { header: "Mileage", key: "mileage", width: 12 },
+      { header: "VIN", key: "vin", width: 22 },
+      { header: "Inspection", key: "inspection", width: 14 },
+      { header: "Engine Lights", key: "engine_lights", width: 16 },
+      { header: "Body", key: "body", width: 14 },
+      { header: "Sugested Bid", key: "suggested_bid", width: 14 },
+      { header: "Real view", key: "real_view", width: 14 },
+    ]
+
+    const headerRow = worksheet.getRow(1)
+    headerRow.font = { bold: true }
+    headerRow.alignment = { vertical: "middle", horizontal: "center" }
+
+    filteredCars.forEach((car, index) => {
+      worksheet.addRow({
+        row: index + 1,
+        num: car.run_number || "",
+        year: car.year ?? "",
+        make: car.make || "",
+        model: car.model || "",
+        mileage: car.odometer ?? "",
+        vin: car.vin || "",
+        inspection: "",
+        engine_lights: "",
+        body: "",
+        suggested_bid: car.suggested_max_bid ?? "",
+        real_view: "",
+      })
+    })
+
+    worksheet.autoFilter = {
+      from: "A1",
+      to: "L1",
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    const fileParts = [
+      "upcoming-auction",
+      auction?.auction_date || "",
+      auction?.name ? slugifyFilePart(auction.name) : "",
+    ].filter(Boolean)
+
+    link.href = url
+    link.download = `${fileParts.join("-") || "upcoming-auction"}.xlsx`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -305,6 +379,13 @@ export default function UpcomingAuctionPage() {
           <>
             <Button asChild variant="outline">
               <Link href="/dashboard">Dashboard</Link>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={exportToXlsx}
+              disabled={filteredCars.length === 0}
+            >
+              Export XLSX
             </Button>
             <Button asChild>
               <Link href="/run-pipeline">Run Pipeline</Link>

@@ -74,6 +74,10 @@ export default function ImportAuctionPage() {
               normalizeText(row["Run#"]) ??
               normalizeText(row["Run"]),
             lane: normalizeText(row["Lane"]),
+            vin:
+              normalizeText(row["VIN"]) ??
+              normalizeText(row["Vin"]) ??
+              normalizeText(row["vin"]),
             year: parseNumber(row["Year"]),
             make: normalizeText(row["Make"]),
             model: normalizeText(row["Model"]),
