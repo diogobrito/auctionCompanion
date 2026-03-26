@@ -225,39 +225,12 @@ export default function DashboardPage() {
     setSavingField("overall_condition")
     setMessage("")
 
-    const currentCar = cars.find((car) => car.id === carId)
-    const existingInspection = currentCar?.car_inspections?.[0]
-
-    if (existingInspection?.id) {
-      const { data, error } = await supabase
-        .from("car_inspections")
-        .update({ overall_condition: overallCondition })
-        .eq("id", existingInspection.id)
-        .select("id, auction_car_id, overall_condition, repair_estimate")
-        .single()
-
-      if (error) {
-        console.error(error)
-        setMessage(`Erro ao salvar a condition: ${error.message}`)
-        setSavingField(null)
-        return
-      }
-
-      setCars((prev) =>
-        prev.map((car) =>
-          car.id === carId ? { ...car, car_inspections: [data] } : car
-        )
-      )
-      setSelectedCar((prev) =>
-        prev && prev.id === carId ? { ...prev, car_inspections: [data] } : prev
-      )
-      setSavingField(null)
-      return
-    }
-
     const { data, error } = await supabase
       .from("car_inspections")
-      .insert([{ auction_car_id: carId, overall_condition: overallCondition }])
+      .upsert(
+        [{ auction_car_id: carId, overall_condition: overallCondition }],
+        { onConflict: "auction_car_id" }
+      )
       .select("id, auction_car_id, overall_condition, repair_estimate")
       .single()
 
