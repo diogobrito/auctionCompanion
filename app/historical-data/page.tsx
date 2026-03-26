@@ -140,8 +140,8 @@ export default function HistoricalDataPage() {
       return
     }
 
-    setSales(result.data)
-    setTotalCount(result.totalCount)
+    setSales(result.data ?? [])
+    setTotalCount(result.totalCount ?? 0)
     setCurrentPage(page)
     setLoading(false)
   }
@@ -166,8 +166,8 @@ export default function HistoricalDataPage() {
           return
         }
 
-        setSales(result.data)
-        setTotalCount(result.totalCount)
+        setSales(result.data ?? [])
+        setTotalCount(result.totalCount ?? 0)
         setCurrentPage(1)
         setLoading(false)
       })()
