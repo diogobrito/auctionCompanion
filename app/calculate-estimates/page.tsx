@@ -54,10 +54,10 @@ function calculateStats(prices: number[]) {
   }
 }
 
-function getConfidence(sampleSize: number): "High" | "Medium" | "Low" {
+function getConfidence(sampleSize: number): "High" | "Medium" | null {
   if (sampleSize >= 8) return "High"
   if (sampleSize >= 4) return "Medium"
-  return "Low"
+  return null
 }
 
 export default function CalculateEstimatesPage() {

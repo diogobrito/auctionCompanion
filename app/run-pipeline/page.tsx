@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
+import { findComparableSales } from "@/lib/historical-comparables"
 
 type AuctionCar = {
   id: string
@@ -28,19 +29,6 @@ type HistoricalSale = {
   bid_price: number | null
 }
 
-function getMileageRange(mileage: number | null): string {
-  if (!mileage) return "unknown"
-  if (mileage < 80000) return "0-80k"
-  if (mileage < 120000) return "80-120k"
-  if (mileage < 160000) return "120-160k"
-  if (mileage < 200000) return "160-200k"
-  return "200k+"
-}
-
-function sameMileageRange(a: number | null, b: number | null) {
-  return getMileageRange(a) === getMileageRange(b)
-}
-
 function calculateStats(prices: number[]) {
   if (!prices.length) {
     return {
@@ -60,10 +48,10 @@ function calculateStats(prices: number[]) {
   }
 }
 
-function getConfidence(sampleSize: number): "High" | "Medium" | "Low" {
+function getConfidence(sampleSize: number): "High" | "Medium" | null {
   if (sampleSize >= 8) return "High"
   if (sampleSize >= 4) return "Medium"
-  return "Low"
+  return null
 }
 
 function calculateAuctionFee(estimatedBid: number | null): number | null {
@@ -154,65 +142,9 @@ export default function RunPipelinePage() {
         let estimatedBid: number | null = null
         let estimatedBidMin: number | null = null
         let estimatedBidMax: number | null = null
-        let confidence: "High" | "Medium" | "Low" | null = null
+        let confidence: "High" | "Medium" | null = null
 
-        let comps: HistoricalSale[] = []
-
-        if (car.make && car.model) {
-          // 1) ano/make/model/odometer
-          comps = (historicalSales as HistoricalSale[]).filter(
-            (sale) =>
-              sale.year === car.year &&
-              sale.make?.toUpperCase() === car.make?.toUpperCase() &&
-              sale.model?.toUpperCase() === car.model?.toUpperCase() &&
-              sameMileageRange(sale.odometer, car.odometer) &&
-              sale.bid_price !== null
-          )
-
-          // 2) same year + same make/model, any mileage
-          if (comps.length < 3 && car.year) {
-            comps = (historicalSales as HistoricalSale[]).filter(
-              (sale) =>
-                sale.year === car.year &&
-                sale.make?.toUpperCase() === car.make?.toUpperCase() &&
-                sale.model?.toUpperCase() === car.model?.toUpperCase() &&
-                sale.bid_price !== null
-            )
-          }
-
-          // 3) similar years (+-2) with make/model
-          if (comps.length < 3 && car.year) {
-            comps = (historicalSales as HistoricalSale[]).filter(
-              (sale) =>
-                sale.year !== null &&
-                Math.abs(sale.year - car.year!) <= 2 &&
-                sale.make?.toUpperCase() === car.make?.toUpperCase() &&
-                sale.model?.toUpperCase() === car.model?.toUpperCase() &&
-                sale.bid_price !== null
-            )
-          }
-
-          // 4) make/model only
-          if (comps.length < 3) {
-            comps = (historicalSales as HistoricalSale[]).filter(
-              (sale) =>
-                sale.make?.toUpperCase() === car.make?.toUpperCase() &&
-                sale.model?.toUpperCase() === car.model?.toUpperCase() &&
-                sale.bid_price !== null
-            )
-          }
-
-          // 5) fallback broader estimate (mesma marca ou modelo se nada encontrado)
-          if (comps.length === 0) {
-            comps = (historicalSales as HistoricalSale[]).filter(
-              (sale) =>
-                (sale.make?.toUpperCase() === car.make?.toUpperCase() ||
-                  sale.model?.toUpperCase() === car.model?.toUpperCase() ||
-                  sale.year === car.year) &&
-                sale.bid_price !== null
-            )
-          }
-        }
+        const comps = findComparableSales(car, historicalSales as HistoricalSale[])
 
         const prices = comps
           .map((sale) => sale.bid_price)
@@ -240,6 +172,8 @@ export default function RunPipelinePage() {
             ? Math.max(0, estimatedBid - repairEstimate - riskBuffer)
             : null
 
+        const laneDecision = car.lane?.toUpperCase() === "N" ? "Avoid" : undefined
+
         const updatePayload = {
           estimated_bid: estimatedBid,
           estimated_bid_min: estimatedBidMin,
@@ -248,6 +182,7 @@ export default function RunPipelinePage() {
           auction_fee: auctionFee,
           estimated_total_cost: estimatedTotalCost,
           suggested_max_bid: suggestedMaxBid,
+          ...(laneDecision ? { decision: laneDecision } : {}),
         }
 
         const { error: updateError } = await supabase

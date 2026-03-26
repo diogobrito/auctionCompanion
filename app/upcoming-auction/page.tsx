@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import ExcelJS from "exceljs"
 import { supabase } from "@/lib/supabase"
+import { findComparableSales } from "@/lib/historical-comparables"
 import { PageHeader } from "@/components/page-header"
 import { MetricCard } from "@/components/metric-card"
 import {
@@ -35,6 +36,7 @@ type AuctionCar = {
   suggested_max_bid: number | null
   confidence: string | null
   decision: string | null
+  similar_cars_count?: number
 }
 
 type Auction = {
@@ -44,6 +46,18 @@ type Auction = {
   source_type: string
 }
 
+type HistoricalSale = {
+  id: string
+  year: number | null
+  make: string | null
+  model: string | null
+  odometer: number | null
+  bid_price: number | null
+}
+
+function getSimilarCarsCount(car: AuctionCar, historicalSales: HistoricalSale[]) {
+  return findComparableSales(car, historicalSales).length
+}
 
 
 function currency(value: number | null) {
@@ -116,7 +130,23 @@ export default function UpcomingAuctionPage() {
       return
     }
 
-    setCars(carsData || [])
+    const { data: historicalSales, error: historicalError } = await supabase
+      .from("historical_sales")
+      .select("id, year, make, model, odometer, bid_price")
+
+    if (historicalError) {
+      console.error(historicalError)
+      setMessage("Erro ao buscar histórico para comparar carros.")
+      setLoading(false)
+      return
+    }
+
+    const carsWithSimilarCount = (carsData || []).map((car) => ({
+      ...car,
+      similar_cars_count: getSimilarCarsCount(car as AuctionCar, (historicalSales || []) as HistoricalSale[]),
+    }))
+
+    setCars(carsWithSimilarCount)
     setLoading(false)
   }
 
@@ -436,6 +466,7 @@ export default function UpcomingAuctionPage() {
                         <div>Est. Bid: {currency(car.estimated_bid)}</div>
                         <div>Total Cost: {currency(car.estimated_total_cost)}</div>
                         <div>Max Bid: {currency(car.suggested_max_bid)}</div>
+                        <div>Similar Cars: {car.similar_cars_count ?? 0}</div>
                         <div>Decision: <DecisionBadge value={car.decision} /></div>
                       </div>
                     </div>
@@ -454,6 +485,7 @@ export default function UpcomingAuctionPage() {
                     <th className="px-4 py-3 font-medium">Est. Bid</th>
                     <th className="px-4 py-3 font-medium">Total Cost</th>
                     <th className="px-4 py-3 font-medium">Max Bid</th>
+                    <th className="px-4 py-3 font-medium">Similar Cars</th>
                     <th className="px-4 py-3 font-medium">Confidence</th>
                     <th className="px-4 py-3 font-medium">Decision</th>
                   </tr>
@@ -485,6 +517,7 @@ export default function UpcomingAuctionPage() {
                           {car.confidence === "Low" ? " *" : ""}
                         </td>
                         <td className="px-4 py-3">{currency(car.suggested_max_bid)}</td>
+                        <td className="px-4 py-3">{car.similar_cars_count ?? 0}</td>
                         <td className="px-4 py-3">
                           <ConfidenceBadge value={car.confidence} />
                         </td>

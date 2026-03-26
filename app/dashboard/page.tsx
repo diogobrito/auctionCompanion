@@ -27,6 +27,7 @@ type AuctionCar = {
   auction_id: string
   run_number: string | null
   lane: string | null
+  vin: string | null
   year: number | null
   make: string | null
   model: string | null
@@ -65,14 +66,21 @@ function displayValue(value: number | string | null | undefined) {
   return value
 }
 
-function sortCarsByLaneAndRun(cars: AuctionCar[]) {
-  return [...cars].sort((a, b) => {
-    const laneCompare = (a.lane || "").localeCompare(b.lane || "")
-    if (laneCompare !== 0) return laneCompare
+function getRunSortValue(runNumber: string | null) {
+  if (!runNumber) return Number.MAX_SAFE_INTEGER
 
-    const runA = Number(a.run_number || Number.MAX_SAFE_INTEGER)
-    const runB = Number(b.run_number || Number.MAX_SAFE_INTEGER)
-    return runA - runB
+  const match = runNumber.match(/\d+/)
+  if (!match) return Number.MAX_SAFE_INTEGER
+
+  return Number(match[0])
+}
+
+function sortCarsByRun(cars: AuctionCar[]) {
+  return [...cars].sort((a, b) => {
+    const runCompare = getRunSortValue(a.run_number) - getRunSortValue(b.run_number)
+    if (runCompare !== 0) return runCompare
+
+    return (a.run_number || "").localeCompare(b.run_number || "")
   })
 }
 
@@ -266,11 +274,11 @@ export default function DashboardPage() {
   }, [cars])
 
   const targetCars = useMemo(() => {
-    return sortCarsByLaneAndRun(cars.filter((car) => car.decision === "Target"))
+    return sortCarsByRun(cars.filter((car) => car.decision === "Target"))
   }, [cars])
 
   const maybeCars = useMemo(() => {
-    return sortCarsByLaneAndRun(cars.filter((car) => car.decision === "Maybe"))
+    return sortCarsByRun(cars.filter((car) => car.decision === "Maybe"))
   }, [cars])
 
   const targetTotalPages = Math.max(1, Math.ceil(targetCars.length / PAGE_SIZE))
@@ -309,7 +317,6 @@ export default function DashboardPage() {
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-3 py-2">Run</th>
-                <th className="px-3 py-2">Lane</th>
                 <th className="px-3 py-2">Year</th>
                 <th className="px-3 py-2">Make</th>
                 <th className="px-3 py-2">Model</th>
@@ -342,7 +349,6 @@ export default function DashboardPage() {
                     aria-label={`Ver detalhes de ${displayValue(car.year)} ${displayValue(car.make)} ${displayValue(car.model)}`}
                   >
                     <td className="px-3 py-2">{car.run_number || "-"}</td>
-                    <td className="px-3 py-2">{car.lane || "-"}</td>
                     <td className="px-3 py-2">{car.year || "-"}</td>
                     <td className="px-3 py-2">{car.make || "-"}</td>
                     <td className="px-3 py-2">{car.model || "-"}</td>
@@ -359,7 +365,7 @@ export default function DashboardPage() {
               })}
               {carsToRender.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={12} className="px-3 py-6 text-center text-slate-500">
                     {emptyMessage}
                   </td>
                 </tr>
@@ -546,6 +552,10 @@ export default function DashboardPage() {
                   </section>
 
                   <section className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">VIN</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{displayValue(selectedCar.vin)}</p>
+                    </div>
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Odometer</p>
                       <p className="mt-1 text-lg font-semibold text-slate-900">{displayValue(selectedCar.odometer)}</p>

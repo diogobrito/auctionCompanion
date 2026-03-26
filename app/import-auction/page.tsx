@@ -36,6 +36,7 @@ export default function ImportAuctionPage() {
   const [previewCount, setPreviewCount] = useState(0)
   const [currentAuction, setCurrentAuction] = useState<AuctionSummary | null>(null)
   const [currentAuctionCars, setCurrentAuctionCars] = useState(0)
+  const [auctionDate, setAuctionDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   async function loadCurrentAuction() {
     const { data: latestAuction, error: auctionError } = await supabase
@@ -163,6 +164,12 @@ export default function ImportAuctionPage() {
     setMessage("")
     setPreviewCount(0)
 
+    if (!auctionDate) {
+      setMessage("Informe a data do leilão antes de importar o CSV.")
+      setLoading(false)
+      return
+    }
+
     Papa.parse<CsvRow>(file, {
       header: true,
       skipEmptyLines: true,
@@ -176,8 +183,6 @@ export default function ImportAuctionPage() {
             setLoading(false)
             return
           }
-
-          const auctionDate = new Date().toISOString().slice(0, 10)
 
           const { data: auctionData, error: auctionError } = await supabase
             .from("auctions")
@@ -263,6 +268,19 @@ export default function ImportAuctionPage() {
       <p className="text-sm text-slate-600">Selecione o CSV do próximo leilão para importar os carros.</p>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mb-4 space-y-2">
+          <label htmlFor="auction-date" className="text-sm font-semibold text-slate-900">
+            Data do leilão
+          </label>
+          <input
+            id="auction-date"
+            type="date"
+            value={auctionDate}
+            onChange={(event) => setAuctionDate(event.target.value)}
+            className="block w-full rounded-md border border-slate-300 bg-white p-2 text-sm text-slate-700"
+          />
+        </div>
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <p className="text-sm font-semibold text-slate-900">Leilão atual</p>
