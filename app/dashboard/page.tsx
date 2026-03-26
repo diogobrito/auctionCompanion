@@ -340,7 +340,7 @@ export default function DashboardPage() {
           <table className="min-w-[1000px] divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="px-3 py-2">Run</th>
+                <th className="w-28 px-3 py-2">Run</th>
                 <th className="px-3 py-2">Year</th>
                 <th className="px-3 py-2">Make</th>
                 <th className="px-3 py-2">Model</th>
@@ -373,7 +373,7 @@ export default function DashboardPage() {
                     role="button"
                     aria-label={`Ver detalhes de ${displayValue(car.year)} ${displayValue(car.make)} ${displayValue(car.model)}`}
                   >
-                    <td className="px-3 py-2">{car.run_number || "-"}</td>
+                    <td className="w-28 whitespace-nowrap px-3 py-2">{car.run_number || "-"}</td>
                     <td className="px-3 py-2">{car.year || "-"}</td>
                     <td className="px-3 py-2">{car.make || "-"}</td>
                     <td className="px-3 py-2">{car.model || "-"}</td>
