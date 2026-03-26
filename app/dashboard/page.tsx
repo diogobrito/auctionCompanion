@@ -574,9 +574,14 @@ export default function DashboardPage() {
                       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                         <p className="text-sm font-medium text-slate-800">Real Bid</p>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           defaultValue={selectedCar.real_bid ?? ""}
                           placeholder="Informe o valor real"
+                          onInput={(event) => {
+                            event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "")
+                          }}
                           onBlur={(event) =>
                             void updateRealBid(
                               selectedCar.id,

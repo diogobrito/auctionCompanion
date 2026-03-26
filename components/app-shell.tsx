@@ -19,24 +19,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col w-full">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="flex w-full items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">Auction Buy Assistant</h1>
-            <p className="text-xs text-slate-500">Smart auction decisions</p>
-          </div>
-          <div className="hidden items-center gap-3 sm:flex">
-            <Link href="/dashboard" className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
-              Dashboard
-            </Link>
-            <Link href="/upcoming-auction" className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
-              Upcoming
-            </Link>
-            <Link href="/historical-data" className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
-              Historical Data
-            </Link>
-            <Link href="/import-auction" className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
-              Import Auction
-            </Link>
+        <div className="flex w-full justify-center px-4 py-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
+              Auction Buy Assistant
+            </h1>
+            <p className="mt-1 text-sm text-slate-500">Smart auction decisions</p>
           </div>
         </div>
       </header>
@@ -54,10 +42,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <ChevronLeft className="h-4 w-4" />
             </button>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-800 p-4">
-              <h2 className="text-base font-semibold">Navegação</h2>
-              <p className="mt-1 text-xs text-slate-300">Fluxo rápido do painel</p>
-            </div>
             <nav className="space-y-2">
               {navItems.map((item) => {
                 const Icon = item.icon
