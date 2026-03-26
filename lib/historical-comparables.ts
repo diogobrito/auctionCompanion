@@ -32,6 +32,7 @@ export function findComparableSales(
   historicalSales: HistoricalComparableSale[]
 ) {
   let comps: HistoricalComparableSale[] = []
+  const carYear = car.year
 
   if (car.make && car.model) {
     comps = historicalSales.filter(
@@ -43,21 +44,21 @@ export function findComparableSales(
         sale.bid_price !== null
     )
 
-    if (comps.length < 3 && car.year) {
+    if (comps.length < 3 && carYear !== null) {
       comps = historicalSales.filter(
         (sale) =>
-          sale.year === car.year &&
+          sale.year === carYear &&
           sale.make?.toUpperCase() === car.make?.toUpperCase() &&
           sale.model?.toUpperCase() === car.model?.toUpperCase() &&
           sale.bid_price !== null
       )
     }
 
-    if (comps.length < 3 && car.year) {
+    if (comps.length < 3 && carYear !== null) {
       comps = historicalSales.filter(
         (sale) =>
           sale.year !== null &&
-          Math.abs(sale.year - car.year) <= 2 &&
+          Math.abs(sale.year - carYear) <= 2 &&
           sale.make?.toUpperCase() === car.make?.toUpperCase() &&
           sale.model?.toUpperCase() === car.model?.toUpperCase() &&
           sale.bid_price !== null
