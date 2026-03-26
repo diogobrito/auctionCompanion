@@ -1,6 +1,6 @@
 import "./globals.css"
 import Link from "next/link"
-import { CalendarDays, ClipboardList, Database, LineChart, Truck } from "lucide-react"
+import { CalendarDays, ClipboardList, Database, LineChart, Search, Truck } from "lucide-react"
 
 export const metadata = {
   title: "Auction Buy Assistant",
@@ -10,6 +10,7 @@ export const metadata = {
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LineChart },
   { href: "/upcoming-auction", label: "Upcoming", icon: CalendarDays },
+  { href: "/historical-data", label: "Historical Data", icon: Search },
   { href: "/import-auction", label: "Import Auction", icon: Truck },
   { href: "/import-history", label: "Import History", icon: Database },
   { href: "/run-pipeline", label: "Run Pipeline", icon: ClipboardList },
@@ -36,6 +37,9 @@ export default function RootLayout({
                 </Link>
                 <Link href="/upcoming-auction" className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
                   Upcoming
+                </Link>
+                <Link href="/historical-data" className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
+                  Historical Data
                 </Link>
                 <Link href="/import-auction" className="rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200">
                   Import Auction

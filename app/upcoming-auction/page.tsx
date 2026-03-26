@@ -9,18 +9,10 @@ import { MetricCard } from "@/components/metric-card"
 import {
   DecisionBadge,
   ConfidenceBadge,
-  ConditionBadge,
 } from "@/components/status-badges"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-
-type CarInspection = {
-  id: string
-  auction_car_id: string
-  overall_condition: string | null
-  repair_estimate: number | null
-}
 
 type AuctionCar = {
   id: string
@@ -43,8 +35,6 @@ type AuctionCar = {
   suggested_max_bid: number | null
   confidence: string | null
   decision: string | null
-  notes: string | null
-  car_inspections?: CarInspection[] | null
 }
 
 type Auction = {
@@ -115,10 +105,7 @@ export default function UpcomingAuctionPage() {
 
     const { data: carsData, error: carsError } = await supabase
       .from("auction_cars")
-      .select(`
-        *,
-        car_inspections (*)
-      `)
+      .select("*")
       .eq("auction_id", latestAuction.id)
       .order("run_number", { ascending: true })
 
@@ -155,67 +142,6 @@ export default function UpcomingAuctionPage() {
     setCars((prev) =>
       prev.map((car) => (car.id === id ? { ...car, decision } : car))
     )
-  }
-
-  async function updateNotes(id: string, notes: string) {
-    const { error } = await supabase
-      .from("auction_cars")
-      .update({ notes })
-      .eq("id", id)
-
-    if (error) {
-      console.error(error)
-      return
-    }
-
-    setCars((prev) =>
-      prev.map((car) => (car.id === id ? { ...car, notes } : car))
-    )
-  }
-
-  async function upsertInspection(
-    carId: string,
-    updates: Partial<CarInspection>
-  ) {
-    const car = cars.find((item) => item.id === carId)
-    const existingInspection = car?.car_inspections?.[0]
-
-    if (existingInspection) {
-      const { data, error } = await supabase
-        .from("car_inspections")
-        .update(updates)
-        .eq("id", existingInspection.id)
-        .select()
-        .single()
-
-      if (error) {
-        console.error(error)
-        return
-      }
-
-      setCars((prev) =>
-        prev.map((item) =>
-          item.id === carId ? { ...item, car_inspections: [data] } : item
-        )
-      )
-    } else {
-      const { data, error } = await supabase
-        .from("car_inspections")
-        .insert([{ auction_car_id: carId, ...updates }])
-        .select()
-        .single()
-
-      if (error) {
-        console.error(error)
-        return
-      }
-
-      setCars((prev) =>
-        prev.map((item) =>
-          item.id === carId ? { ...item, car_inspections: [data] } : item
-        )
-      )
-    }
   }
 
   const laneOptions = useMemo(() => {
@@ -498,7 +424,6 @@ export default function UpcomingAuctionPage() {
             <div className="space-y-4">
               <div className="space-y-3 p-4 sm:hidden">
                 {filteredCars.map((car) => {
-                  const inspection = car.car_inspections?.[0]
                   return (
                     <div key={car.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                       <div className="mb-2 flex items-center justify-between text-sm font-semibold">
@@ -512,7 +437,6 @@ export default function UpcomingAuctionPage() {
                         <div>Total Cost: {currency(car.estimated_total_cost)}</div>
                         <div>Max Bid: {currency(car.suggested_max_bid)}</div>
                         <div>Decision: <DecisionBadge value={car.decision} /></div>
-                        <div>Condition: <ConditionBadge value={inspection?.overall_condition || null} /></div>
                       </div>
                     </div>
                   )
@@ -532,17 +456,12 @@ export default function UpcomingAuctionPage() {
                     <th className="px-4 py-3 font-medium">Max Bid</th>
                     <th className="px-4 py-3 font-medium">Confidence</th>
                     <th className="px-4 py-3 font-medium">Decision</th>
-                    <th className="px-4 py-3 font-medium">Condition</th>
-                    <th className="px-4 py-3 font-medium">Repair</th>
-                    <th className="px-4 py-3 font-medium">Notes</th>
                   </tr>
 
                 </thead>
 
                 <tbody>
                   {filteredCars.map((car) => {
-                    const inspection = car.car_inspections?.[0]
-
                     return (
                       <tr
                       key={car.id}
@@ -582,47 +501,6 @@ export default function UpcomingAuctionPage() {
                             <option value="Maybe">Maybe</option>
                             <option value="Avoid">Avoid</option>
                           </select>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="mb-2">
-                            <ConditionBadge value={inspection?.overall_condition || null} />
-                          </div>
-                          <select
-                            className="w-full rounded-md border border-slate-300 px-2 py-1"
-                            value={inspection?.overall_condition ?? "unknown"}
-                            onChange={(e) =>
-                              upsertInspection(car.id, {
-                                overall_condition: e.target.value === "unknown" ? null : e.target.value,
-                              })
-                            }
-                          >
-                            <option value="unknown">Unknown</option>
-                            <option value="poor">Poor</option>
-                            <option value="ok">OK</option>
-                            <option value="good">Good</option>
-                            <option value="excellent">Excellent</option>
-                          </select>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Input
-                            type="number"
-                            defaultValue={inspection?.repair_estimate ?? ""}
-                            onBlur={(e) =>
-                              upsertInspection(car.id, {
-                                repair_estimate: e.target.value
-                                  ? Number(e.target.value)
-                                  : null,
-                              })
-                            }
-                            className="w-full min-w-[140px] max-w-[180px]"
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <Input
-                            defaultValue={car.notes || ""}
-                            onBlur={(e) => updateNotes(car.id, e.target.value)}
-                            className="w-full min-w-[220px] max-w-[320px]"
-                          />
                         </td>
                       </tr>
                     )

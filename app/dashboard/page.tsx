@@ -5,8 +5,19 @@ import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { PageHeader } from "@/components/page-header"
 import { MetricCard } from "@/components/metric-card"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+
+const PAGE_SIZE = 30
 
 type CarInspection = {
+  id?: string
+  auction_car_id?: string
   overall_condition: string | null
   repair_estimate: number | null
 }
@@ -29,6 +40,9 @@ type AuctionCar = {
   confidence: string | null
   decision: string | null
   notes: string | null
+  inspection_checked: boolean
+  engine_lights_checked: boolean
+  notes_checked: boolean
   car_inspections?: CarInspection[] | null
 }
 
@@ -36,12 +50,6 @@ type Auction = {
   id: string
   name: string
   auction_date: string
-}
-
-function avg(values: number[]) {
-  if (!values.length) return 0
-  const total = values.reduce((sum, value) => sum + value, 0)
-  return Math.round(total / values.length)
 }
 
 function currency(value: number) {
@@ -52,11 +60,31 @@ function currency(value: number) {
   }).format(value)
 }
 
+function displayValue(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") return "-"
+  return value
+}
+
+function sortCarsByLaneAndRun(cars: AuctionCar[]) {
+  return [...cars].sort((a, b) => {
+    const laneCompare = (a.lane || "").localeCompare(b.lane || "")
+    if (laneCompare !== 0) return laneCompare
+
+    const runA = Number(a.run_number || Number.MAX_SAFE_INTEGER)
+    const runB = Number(b.run_number || Number.MAX_SAFE_INTEGER)
+    return runA - runB
+  })
+}
+
 export default function DashboardPage() {
   const [auction, setAuction] = useState<Auction | null>(null)
   const [cars, setCars] = useState<AuctionCar[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
+  const [selectedCar, setSelectedCar] = useState<AuctionCar | null>(null)
+  const [savingField, setSavingField] = useState<string | null>(null)
+  const [targetPage, setTargetPage] = useState(1)
+  const [maybePage, setMaybePage] = useState(1)
 
   async function loadDashboard() {
     setLoading(true)
@@ -90,6 +118,8 @@ export default function DashboardPage() {
       .select(`
         *,
         car_inspections (
+          id,
+          auction_car_id,
           overall_condition,
           repair_estimate
         )
@@ -115,52 +145,295 @@ export default function DashboardPage() {
     return () => window.clearTimeout(timer)
   }, [])
 
+  async function updateCheckboxField(
+    carId: string,
+    field: "inspection_checked" | "engine_lights_checked",
+    value: boolean
+  ) {
+    setSavingField(field)
+    setMessage("")
+
+    const { error } = await supabase
+      .from("auction_cars")
+      .update({ [field]: value })
+      .eq("id", carId)
+
+    if (error) {
+      console.error(error)
+      setMessage(`Erro ao salvar os checkboxes do carro: ${error.message}`)
+      setSavingField(null)
+      return
+    }
+
+    setCars((prev) =>
+      prev.map((car) => (car.id === carId ? { ...car, [field]: value } : car))
+    )
+    setSelectedCar((prev) => (prev && prev.id === carId ? { ...prev, [field]: value } : prev))
+    setSavingField(null)
+  }
+
+  async function updateNotes(carId: string, notes: string) {
+    setSavingField("notes")
+    setMessage("")
+
+    const { error } = await supabase
+      .from("auction_cars")
+      .update({ notes })
+      .eq("id", carId)
+
+    if (error) {
+      console.error(error)
+      setMessage(`Erro ao salvar as notes: ${error.message}`)
+      setSavingField(null)
+      return
+    }
+
+    setCars((prev) =>
+      prev.map((car) => (car.id === carId ? { ...car, notes } : car))
+    )
+    setSelectedCar((prev) => (prev && prev.id === carId ? { ...prev, notes } : prev))
+    setSavingField(null)
+  }
+
+  async function updateDecision(carId: string, decision: string) {
+    setSavingField("decision")
+    setMessage("")
+
+    const { error } = await supabase
+      .from("auction_cars")
+      .update({ decision })
+      .eq("id", carId)
+
+    if (error) {
+      console.error(error)
+      setMessage(`Erro ao salvar a decision: ${error.message}`)
+      setSavingField(null)
+      return
+    }
+
+    setCars((prev) =>
+      prev.map((car) => (car.id === carId ? { ...car, decision } : car))
+    )
+    setSelectedCar((prev) => (prev && prev.id === carId ? { ...prev, decision } : prev))
+    setSavingField(null)
+  }
+
+  async function upsertInspectionCondition(
+    carId: string,
+    overallCondition: string | null
+  ) {
+    setSavingField("overall_condition")
+    setMessage("")
+
+    const currentCar = cars.find((car) => car.id === carId)
+    const existingInspection = currentCar?.car_inspections?.[0]
+
+    if (existingInspection?.id) {
+      const { data, error } = await supabase
+        .from("car_inspections")
+        .update({ overall_condition: overallCondition })
+        .eq("id", existingInspection.id)
+        .select("id, auction_car_id, overall_condition, repair_estimate")
+        .single()
+
+      if (error) {
+        console.error(error)
+        setMessage(`Erro ao salvar a condition: ${error.message}`)
+        setSavingField(null)
+        return
+      }
+
+      setCars((prev) =>
+        prev.map((car) =>
+          car.id === carId ? { ...car, car_inspections: [data] } : car
+        )
+      )
+      setSelectedCar((prev) =>
+        prev && prev.id === carId ? { ...prev, car_inspections: [data] } : prev
+      )
+      setSavingField(null)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("car_inspections")
+      .insert([{ auction_car_id: carId, overall_condition: overallCondition }])
+      .select("id, auction_car_id, overall_condition, repair_estimate")
+      .single()
+
+    if (error) {
+      console.error(error)
+      setMessage(`Erro ao salvar a condition: ${error.message}`)
+      setSavingField(null)
+      return
+    }
+
+    setCars((prev) =>
+      prev.map((car) =>
+        car.id === carId ? { ...car, car_inspections: [data] } : car
+      )
+    )
+    setSelectedCar((prev) =>
+      prev && prev.id === carId ? { ...prev, car_inspections: [data] } : prev
+    )
+    setSavingField(null)
+  }
+
   const metrics = useMemo(() => {
-    const estimatedBids = cars
-      .map((car) => car.estimated_bid)
-      .filter((value): value is number => value !== null)
-
-    const totalCosts = cars
-      .map((car) => car.estimated_total_cost)
-      .filter((value): value is number => value !== null)
-
     const targetCount = cars.filter((car) => car.decision === "Target").length
     const maybeCount = cars.filter((car) => car.decision === "Maybe").length
     const avoidCount = cars.filter((car) => car.decision === "Avoid").length
 
-    const laneCounts = cars.reduce<Record<string, number>>((acc, car) => {
-      const lane = car.lane || "Unknown"
-      acc[lane] = (acc[lane] || 0) + 1
-      return acc
-    }, {})
-
     return {
       totalCars: cars.length,
-      avgEstimatedBid: avg(estimatedBids),
-      avgTotalCost: avg(totalCosts),
       targetCount,
       maybeCount,
       avoidCount,
-      laneCounts,
     }
   }, [cars])
 
-  const topOpportunities = useMemo(() => {
-    return [...cars]
-      .filter(
-        (car) =>
-          car.suggested_max_bid !== null &&
-          car.estimated_bid !== null &&
-          car.decision !== "Avoid"
-      )
-      .map((car) => ({
-        ...car,
-        opportunityGap:
-          (car.estimated_bid || 0) - (car.suggested_max_bid || 0),
-      }))
-      .sort((a, b) => a.opportunityGap - b.opportunityGap)
-      .slice(0, 10)
+  const targetCars = useMemo(() => {
+    return sortCarsByLaneAndRun(cars.filter((car) => car.decision === "Target"))
   }, [cars])
+
+  const maybeCars = useMemo(() => {
+    return sortCarsByLaneAndRun(cars.filter((car) => car.decision === "Maybe"))
+  }, [cars])
+
+  const targetTotalPages = Math.max(1, Math.ceil(targetCars.length / PAGE_SIZE))
+  const maybeTotalPages = Math.max(1, Math.ceil(maybeCars.length / PAGE_SIZE))
+  const currentTargetPage = Math.min(targetPage, targetTotalPages)
+  const currentMaybePage = Math.min(maybePage, maybeTotalPages)
+
+  const paginatedTargetCars = useMemo(() => {
+    const start = (currentTargetPage - 1) * PAGE_SIZE
+    return targetCars.slice(start, start + PAGE_SIZE)
+  }, [currentTargetPage, targetCars])
+
+  const paginatedMaybeCars = useMemo(() => {
+    const start = (currentMaybePage - 1) * PAGE_SIZE
+    return maybeCars.slice(start, start + PAGE_SIZE)
+  }, [currentMaybePage, maybeCars])
+
+  const selectedInspection = selectedCar?.car_inspections?.[0]
+
+  function renderCarsTable(
+    title: string,
+    carsToRender: AuctionCar[],
+    emptyMessage: string,
+    currentPage: number,
+    totalPages: number,
+    onFirstPage: () => void,
+    onPreviousPage: () => void,
+    onNextPage: () => void,
+    onLastPage: () => void
+  ) {
+    return (
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-lg font-semibold text-slate-900">{title}</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1000px] divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-3 py-2">Run</th>
+                <th className="px-3 py-2">Lane</th>
+                <th className="px-3 py-2">Year</th>
+                <th className="px-3 py-2">Make</th>
+                <th className="px-3 py-2">Model</th>
+                <th className="px-3 py-2">Miles</th>
+                <th className="px-3 py-2">Estimated Bid</th>
+                <th className="px-3 py-2">Max Bid</th>
+                <th className="px-3 py-2">Confidence</th>
+                <th className="px-3 py-2">Condition</th>
+                <th className="px-3 py-2">Inspection</th>
+                <th className="px-3 py-2">Engine Lights</th>
+                <th className="px-3 py-2">Total Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 text-slate-700">
+              {carsToRender.map((car) => {
+                const inspection = car.car_inspections?.[0]
+                return (
+                  <tr
+                    key={car.id}
+                    className="cursor-pointer hover:bg-slate-50 focus-within:bg-slate-50"
+                    onClick={() => setSelectedCar(car)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        setSelectedCar(car)
+                      }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Ver detalhes de ${displayValue(car.year)} ${displayValue(car.make)} ${displayValue(car.model)}`}
+                  >
+                    <td className="px-3 py-2">{car.run_number || "-"}</td>
+                    <td className="px-3 py-2">{car.lane || "-"}</td>
+                    <td className="px-3 py-2">{car.year || "-"}</td>
+                    <td className="px-3 py-2">{car.make || "-"}</td>
+                    <td className="px-3 py-2">{car.model || "-"}</td>
+                    <td className="px-3 py-2">{car.odometer ?? "-"}</td>
+                    <td className="px-3 py-2">{car.estimated_bid ? currency(car.estimated_bid) : "-"}</td>
+                    <td className="px-3 py-2">{car.suggested_max_bid ? currency(car.suggested_max_bid) : "-"}</td>
+                    <td className="px-3 py-2">{car.confidence || "-"}</td>
+                    <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
+                    <td className="px-3 py-2">{car.inspection_checked ? "Yes" : "No"}</td>
+                    <td className="px-3 py-2">{car.engine_lights_checked ? "Yes" : "No"}</td>
+                    <td className="px-3 py-2">{car.estimated_total_cost ? currency(car.estimated_total_cost) : "-"}</td>
+                  </tr>
+                )
+              })}
+              {carsToRender.length === 0 && (
+                <tr>
+                  <td colSpan={13} className="px-3 py-6 text-center text-slate-500">
+                    {emptyMessage}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-600">
+          <button
+            type="button"
+            onClick={onFirstPage}
+            disabled={currentPage === 1}
+            className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Primeira
+          </button>
+          <button
+            type="button"
+            onClick={onPreviousPage}
+            disabled={currentPage === 1}
+            className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Anterior
+          </button>
+          <span>
+            Pagina {currentPage} de {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={onNextPage}
+            disabled={currentPage === totalPages}
+            className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Proxima
+          </button>
+          <button
+            type="button"
+            onClick={onLastPage}
+            disabled={currentPage === totalPages}
+            className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Ultima
+          </button>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -185,71 +458,172 @@ export default function DashboardPage() {
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MetricCard title="Total Cars" value={String(metrics.totalCars)} />
-            <MetricCard title="Avg Estimated Bid" value={currency(metrics.avgEstimatedBid)} />
-            <MetricCard title="Avg Total Cost" value={currency(metrics.avgTotalCost)} />
             <MetricCard title="Target" value={String(metrics.targetCount)} />
             <MetricCard title="Maybe" value={String(metrics.maybeCount)} />
             <MetricCard title="Avoid" value={String(metrics.avoidCount)} />
           </div>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Lane Distribution</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {Object.entries(metrics.laneCounts)
-                .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([lane, count]) => (
-                  <div key={lane} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-sm font-medium text-slate-700">Lane {lane}</p>
-                    <p className="text-2xl font-bold text-slate-900">{count}</p>
-                  </div>
-                ))}
-            </div>
-          </section>
+          {renderCarsTable(
+            "Target Cars",
+            paginatedTargetCars,
+            "Nenhum carro marcado como Target neste leilao.",
+            currentTargetPage,
+            targetTotalPages,
+            () => setTargetPage(1),
+            () => setTargetPage((page) => Math.max(1, page - 1)),
+            () => setTargetPage((page) => Math.min(targetTotalPages, page + 1)),
+            () => setTargetPage(targetTotalPages)
+          )}
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold text-slate-900">Top Opportunities</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-[1000px] divide-y divide-slate-200 text-sm">
-                <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2">Run</th>
-                    <th className="px-3 py-2">Lane</th>
-                    <th className="px-3 py-2">Year</th>
-                    <th className="px-3 py-2">Make</th>
-                    <th className="px-3 py-2">Model</th>
-                    <th className="px-3 py-2">Miles</th>
-                    <th className="px-3 py-2">Estimated Bid</th>
-                    <th className="px-3 py-2">Total Cost</th>
-                    <th className="px-3 py-2">Max Bid</th>
-                    <th className="px-3 py-2">Confidence</th>
-                    <th className="px-3 py-2">Decision</th>
-                    <th className="px-3 py-2">Condition</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 text-slate-700">
-                  {topOpportunities.map((car) => {
-                    const inspection = car.car_inspections?.[0]
-                    return (
-                      <tr key={car.id} className="hover:bg-slate-50">
-                        <td className="px-3 py-2">{car.run_number || "-"}</td>
-                        <td className="px-3 py-2">{car.lane || "-"}</td>
-                        <td className="px-3 py-2">{car.year || "-"}</td>
-                        <td className="px-3 py-2">{car.make || "-"}</td>
-                        <td className="px-3 py-2">{car.model || "-"}</td>
-                        <td className="px-3 py-2">{car.odometer ?? "-"}</td>
-                        <td className="px-3 py-2">{car.estimated_bid ? currency(car.estimated_bid) : "-"}</td>
-                        <td className="px-3 py-2">{car.estimated_total_cost ? currency(car.estimated_total_cost) : "-"}</td>
-                        <td className="px-3 py-2">{car.suggested_max_bid ? currency(car.suggested_max_bid) : "-"}</td>
-                        <td className="px-3 py-2">{car.confidence || "-"}</td>
-                        <td className="px-3 py-2">{car.decision || "-"}</td>
-                        <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          {renderCarsTable(
+            "Maybe Cars",
+            paginatedMaybeCars,
+            "Nenhum carro marcado como Maybe neste leilao.",
+            currentMaybePage,
+            maybeTotalPages,
+            () => setMaybePage(1),
+            () => setMaybePage((page) => Math.max(1, page - 1)),
+            () => setMaybePage((page) => Math.min(maybeTotalPages, page + 1)),
+            () => setMaybePage(maybeTotalPages)
+          )}
+
+          <Sheet open={selectedCar !== null} onOpenChange={(open) => !open && setSelectedCar(null)}>
+            <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+              <SheetHeader>
+                <SheetTitle>
+                  {selectedCar
+                    ? `${displayValue(selectedCar.year)} ${displayValue(selectedCar.make)} ${displayValue(selectedCar.model)}`
+                    : "Detalhes do carro"}
+                </SheetTitle>
+                <SheetDescription>
+                  {selectedCar
+                    ? `Run ${displayValue(selectedCar.run_number)} • Lane ${displayValue(selectedCar.lane)}`
+                    : "Informacoes detalhadas do veiculo selecionado."}
+                </SheetDescription>
+              </SheetHeader>
+
+              {selectedCar && (
+                <div className="space-y-6 px-4 pb-6">
+                  <section className="rounded-xl border border-slate-200 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h3 className="text-sm font-semibold text-slate-900">Checklist</h3>
+                    </div>
+                    <div className="space-y-3 px-4 py-4">
+                      <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="text-sm font-medium text-slate-800">Inspection</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedCar.inspection_checked}
+                          onChange={(event) =>
+                            void updateCheckboxField(selectedCar.id, "inspection_checked", event.target.checked)
+                          }
+                          disabled={savingField === "inspection_checked"}
+                          className="h-4 w-4 accent-slate-900"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="text-sm font-medium text-slate-800">Engine Lights</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedCar.engine_lights_checked}
+                          onChange={(event) =>
+                            void updateCheckboxField(selectedCar.id, "engine_lights_checked", event.target.checked)
+                          }
+                          disabled={savingField === "engine_lights_checked"}
+                          className="h-4 w-4 accent-slate-900"
+                        />
+                      </label>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-sm font-medium text-slate-800">Condition</p>
+                        <select
+                          className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
+                          value={selectedInspection?.overall_condition ?? "unknown"}
+                          onChange={(event) =>
+                            void upsertInspectionCondition(
+                              selectedCar.id,
+                              event.target.value === "unknown" ? null : event.target.value
+                            )
+                          }
+                          disabled={savingField === "overall_condition"}
+                        >
+                          <option value="unknown">Unknown</option>
+                          <option value="poor">Poor</option>
+                          <option value="ok">OK</option>
+                          <option value="good">Good</option>
+                          <option value="excellent">Excellent</option>
+                        </select>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-sm font-medium text-slate-800">Decision</p>
+                        <select
+                          className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                          value={selectedCar.decision ?? "Maybe"}
+                          onChange={(event) => void updateDecision(selectedCar.id, event.target.value)}
+                          disabled={savingField === "decision"}
+                        >
+                          <option value="Target">Target</option>
+                          <option value="Maybe">Maybe</option>
+                          <option value="Avoid">Avoid</option>
+                        </select>
+                      </div>
+                      {savingField && (
+                        <p className="text-xs text-slate-500">Salvando alteracao...</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Odometer</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{displayValue(selectedCar.odometer)}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Auction Fee</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {selectedCar.auction_fee !== null ? currency(selectedCar.auction_fee) : "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Estimated Bid</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {selectedCar.estimated_bid !== null ? currency(selectedCar.estimated_bid) : "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Estimated Total Cost</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {selectedCar.estimated_total_cost !== null ? currency(selectedCar.estimated_total_cost) : "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Suggested Max Bid</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                        {selectedCar.suggested_max_bid !== null ? currency(selectedCar.suggested_max_bid) : "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Confidence</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{displayValue(selectedCar.confidence)}</p>
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl border border-slate-200 bg-white">
+                    <div className="border-b border-slate-200 px-4 py-3">
+                      <h3 className="text-sm font-semibold text-slate-900">Notes</h3>
+                    </div>
+                    <div className="px-4 py-4">
+                      <textarea
+                        className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
+                        defaultValue={selectedCar.notes || ""}
+                        placeholder="Adicione observacoes sobre este carro..."
+                        onBlur={(event) => void updateNotes(selectedCar.id, event.target.value)}
+                      />
+                    </div>
+                  </section>
+                </div>
+              )}
+            </SheetContent>
+          </Sheet>
         </>
       )}
     </div>

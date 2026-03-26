@@ -1,11 +1,18 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
 import Papa from "papaparse"
 import { supabase } from "@/lib/supabase"
 
 type CsvRow = {
   [key: string]: string
+}
+
+type AuctionSummary = {
+  id: string
+  name: string
+  auction_date: string
 }
 
 function parseNumber(value: string | undefined | null): number | null {
@@ -24,8 +31,132 @@ function normalizeText(value: string | undefined | null): string | null {
 
 export default function ImportAuctionPage() {
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [message, setMessage] = useState("")
   const [previewCount, setPreviewCount] = useState(0)
+  const [currentAuction, setCurrentAuction] = useState<AuctionSummary | null>(null)
+  const [currentAuctionCars, setCurrentAuctionCars] = useState(0)
+
+  async function loadCurrentAuction() {
+    const { data: latestAuction, error: auctionError } = await supabase
+      .from("auctions")
+      .select("id, name, auction_date")
+      .eq("source_type", "presale")
+      .order("auction_date", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (auctionError) {
+      console.error(auctionError)
+      return
+    }
+
+    if (!latestAuction) {
+      setCurrentAuction(null)
+      setCurrentAuctionCars(0)
+      return
+    }
+
+    setCurrentAuction(latestAuction)
+
+    const { count, error: carsError } = await supabase
+      .from("auction_cars")
+      .select("id", { count: "exact", head: true })
+      .eq("auction_id", latestAuction.id)
+
+    if (carsError) {
+      console.error(carsError)
+      setCurrentAuctionCars(0)
+      return
+    }
+
+    setCurrentAuctionCars(count ?? 0)
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadCurrentAuction()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  async function handleDeleteCurrentAuction() {
+    if (!currentAuction) return
+
+    const confirmed = window.confirm(
+      `Excluir o leilão atual "${currentAuction.name}" e todos os veículos importados?`
+    )
+
+    if (!confirmed) return
+
+    setDeleting(true)
+    setMessage("")
+
+    try {
+      const { data: auctionCars, error: auctionCarsError } = await supabase
+        .from("auction_cars")
+        .select("id")
+        .eq("auction_id", currentAuction.id)
+
+      if (auctionCarsError) {
+        console.error(auctionCarsError)
+        setMessage("Erro ao localizar os carros do leilão atual.")
+        setDeleting(false)
+        return
+      }
+
+      const auctionCarIds = (auctionCars ?? []).map((car) => car.id)
+
+      if (auctionCarIds.length) {
+        const { error: inspectionsError } = await supabase
+          .from("car_inspections")
+          .delete()
+          .in("auction_car_id", auctionCarIds)
+
+        if (inspectionsError) {
+          console.error(inspectionsError)
+          setMessage("Erro ao excluir as inspeções do leilão atual.")
+          setDeleting(false)
+          return
+        }
+      }
+
+      const { error: deleteCarsError } = await supabase
+        .from("auction_cars")
+        .delete()
+        .eq("auction_id", currentAuction.id)
+
+      if (deleteCarsError) {
+        console.error(deleteCarsError)
+        setMessage("Erro ao excluir os veículos do leilão atual.")
+        setDeleting(false)
+        return
+      }
+
+      const { error: deleteAuctionError } = await supabase
+        .from("auctions")
+        .delete()
+        .eq("id", currentAuction.id)
+
+      if (deleteAuctionError) {
+        console.error(deleteAuctionError)
+        setMessage("Erro ao excluir o leilão atual.")
+        setDeleting(false)
+        return
+      }
+
+      setCurrentAuction(null)
+      setCurrentAuctionCars(0)
+      setPreviewCount(0)
+      setMessage("Leilão atual excluído com sucesso. Agora você pode importar outro CSV.")
+    } catch (error) {
+      console.error(error)
+      setMessage("Erro inesperado ao excluir o leilão atual.")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   async function handleFileUpload(file: File) {
     setLoading(true)
@@ -110,6 +241,7 @@ export default function ImportAuctionPage() {
           }
 
           setMessage(`Importação concluída com sucesso: ${carsToInsert.length} carros.`)
+          await loadCurrentAuction()
         } catch (err) {
           console.error(err)
           setMessage("Erro inesperado ao importar arquivo.")
@@ -129,6 +261,35 @@ export default function ImportAuctionPage() {
     <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <h1 className="text-2xl font-bold text-slate-900">Import Upcoming Auction</h1>
       <p className="text-sm text-slate-600">Selecione o CSV do próximo leilão para importar os carros.</p>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-slate-900">Leilão atual</p>
+            {currentAuction ? (
+              <>
+                <p className="text-sm text-slate-700">
+                  {currentAuction.name} • {currentAuction.auction_date}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {currentAuctionCars} veículos vinculados a este leilão.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-slate-500">Nenhum leilão presale ativo no momento.</p>
+            )}
+          </div>
+
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => void handleDeleteCurrentAuction()}
+            disabled={!currentAuction || deleting || loading}
+          >
+            {deleting ? "Excluindo..." : "Excluir leilão atual"}
+          </Button>
+        </div>
+      </div>
 
       <input
         type="file"

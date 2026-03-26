@@ -6,12 +6,13 @@ export default function Home() {
       <div>
         <span className="text-xs font-medium uppercase tracking-wider text-slate-500">Auction Buy Assistant</span>
         <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">Bem-vindo ao dashboard inteligente</h1>
-        <p className="mt-2 text-slate-600">Use o menu para navegar pelos módulos: leilões, importação, estimativas e execução de pipeline.</p>
+        <p className="mt-2 text-slate-600">Use o menu para navegar pelos módulos: leilões, histórico, importação, estimativas e execução de pipeline.</p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Link href="/dashboard" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-100">Dashboard</Link>
         <Link href="/upcoming-auction" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-100">Upcoming Auction</Link>
+        <Link href="/historical-data" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-100">Historical Data</Link>
         <Link href="/import-auction" className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-center text-sm font-medium text-slate-700 hover:bg-slate-100">Import Auction</Link>
       </div>
     </div>
