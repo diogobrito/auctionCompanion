@@ -37,6 +37,7 @@ type AuctionCar = {
   estimated_bid_max: number | null
   auction_fee: number | null
   estimated_total_cost: number | null
+  real_bid: number | null
   suggested_max_bid: number | null
   confidence: string | null
   decision: string | null
@@ -226,6 +227,29 @@ export default function DashboardPage() {
     setSavingField(null)
   }
 
+  async function updateRealBid(carId: string, realBid: number | null) {
+    setSavingField("real_bid")
+    setMessage("")
+
+    const { error } = await supabase
+      .from("auction_cars")
+      .update({ real_bid: realBid })
+      .eq("id", carId)
+
+    if (error) {
+      console.error(error)
+      setMessage(`Erro ao salvar o real bid: ${error.message}`)
+      setSavingField(null)
+      return
+    }
+
+    setCars((prev) =>
+      prev.map((car) => (car.id === carId ? { ...car, real_bid: realBid } : car))
+    )
+    setSelectedCar((prev) => (prev && prev.id === carId ? { ...prev, real_bid: realBid } : prev))
+    setSavingField(null)
+  }
+
   async function upsertInspectionCondition(
     carId: string,
     overallCondition: string | null
@@ -323,11 +347,12 @@ export default function DashboardPage() {
                 <th className="px-3 py-2">Miles</th>
                 <th className="px-3 py-2">Estimated Bid</th>
                 <th className="px-3 py-2">Max Bid</th>
+                <th className="px-3 py-2">Real Bid</th>
                 <th className="px-3 py-2">Confidence</th>
                 <th className="px-3 py-2">Condition</th>
                 <th className="px-3 py-2">Inspection</th>
                 <th className="px-3 py-2">Engine Lights</th>
-                <th className="px-3 py-2">Total Cost</th>
+                <th className="px-3 py-2">Fees</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-700">
@@ -355,17 +380,18 @@ export default function DashboardPage() {
                     <td className="px-3 py-2">{car.odometer ?? "-"}</td>
                     <td className="px-3 py-2">{car.estimated_bid ? currency(car.estimated_bid) : "-"}</td>
                     <td className="px-3 py-2">{car.suggested_max_bid ? currency(car.suggested_max_bid) : "-"}</td>
+                    <td className="px-3 py-2">{car.real_bid !== null ? currency(car.real_bid) : "-"}</td>
                     <td className="px-3 py-2">{car.confidence || "-"}</td>
                     <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
                     <td className="px-3 py-2">{car.inspection_checked ? "Yes" : "No"}</td>
                     <td className="px-3 py-2">{car.engine_lights_checked ? "Yes" : "No"}</td>
-                    <td className="px-3 py-2">{car.estimated_total_cost ? currency(car.estimated_total_cost) : "-"}</td>
+                    <td className="px-3 py-2">{car.auction_fee !== null ? currency(car.auction_fee) : "-"}</td>
                   </tr>
                 )
               })}
               {carsToRender.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={13} className="px-3 py-6 text-center text-slate-500">
                     {emptyMessage}
                   </td>
                 </tr>
@@ -544,6 +570,21 @@ export default function DashboardPage() {
                           <option value="Maybe">Maybe</option>
                           <option value="Avoid">Avoid</option>
                         </select>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <p className="text-sm font-medium text-slate-800">Real Bid</p>
+                        <input
+                          type="number"
+                          defaultValue={selectedCar.real_bid ?? ""}
+                          placeholder="Informe o valor real"
+                          onBlur={(event) =>
+                            void updateRealBid(
+                              selectedCar.id,
+                              event.target.value.trim() === "" ? null : Number(event.target.value)
+                            )
+                          }
+                          className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                        />
                       </div>
                       {savingField && (
                         <p className="text-xs text-slate-500">Salvando alteracao...</p>
