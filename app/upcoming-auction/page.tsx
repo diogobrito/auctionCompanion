@@ -104,13 +104,13 @@ export default function UpcomingAuctionPage() {
 
     if (auctionError) {
       console.error(auctionError)
-      setMessage("Erro ao buscar o último leilão presale.")
+      setMessage("Error loading the latest presale auction.")
       setLoading(false)
       return
     }
 
     if (!latestAuction) {
-      setMessage("Nenhum leilão presale encontrado.")
+      setMessage("No presale auction found.")
       setLoading(false)
       return
     }
@@ -125,7 +125,7 @@ export default function UpcomingAuctionPage() {
 
     if (carsError) {
       console.error(carsError)
-      setMessage("Erro ao buscar carros do próximo leilão.")
+      setMessage("Error loading cars for the upcoming auction.")
       setLoading(false)
       return
     }
@@ -136,7 +136,7 @@ export default function UpcomingAuctionPage() {
 
     if (historicalError) {
       console.error(historicalError)
-      setMessage("Erro ao buscar histórico para comparar carros.")
+      setMessage("Error loading history to compare cars.")
       setLoading(false)
       return
     }
@@ -358,64 +358,64 @@ export default function UpcomingAuctionPage() {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium text-slate-700 shadow-sm">
-        Carros filtrados: {filteredCars.length} de {cars.length} totais
+        Filtered cars: {filteredCars.length} of {cars.length} total
       </div>
 
       <Card>
         <CardContent className="pt-6">
           <div className="grid gap-3 md:grid-cols-6">
             <Input
-              placeholder="Pesquisar por ano, marca, modelo..."
+              placeholder="Search by year, make, model..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="col-span-6 md:col-span-2 w-full"
             />
             <Input
               type="number"
-              placeholder="Est. Bid mínimo"
+              placeholder="Min Est. Bid"
               value={minBid}
               onChange={(e) => setMinBid(e.target.value)}
               className="col-span-3 md:col-span-1 w-full"
             />
             <Input
               type="number"
-              placeholder="Est. Bid máximo"
+              placeholder="Max Est. Bid"
               value={maxBid}
               onChange={(e) => setMaxBid(e.target.value)}
               className="col-span-3 md:col-span-1 w-full"
             />
             <Input
               type="number"
-              placeholder="Ano mínimo"
+              placeholder="Min Year"
               value={minYear}
               onChange={(e) => setMinYear(e.target.value)}
               className="col-span-3 md:col-span-1 w-full"
             />
             <Input
               type="number"
-              placeholder="Ano máximo"
+              placeholder="Max Year"
               value={maxYear}
               onChange={(e) => setMaxYear(e.target.value)}
               className="col-span-3 md:col-span-1 w-full"
             />
             <Input
               type="number"
-              placeholder="Milhas mínimas"
+              placeholder="Min Miles"
               value={minMileage}
               onChange={(e) => setMinMileage(e.target.value)}
               className="col-span-3 md:col-span-1 w-full"
             />
             <Input
               type="number"
-              placeholder="Milhas máximas"
+              placeholder="Max Miles"
               value={maxMileage}
               onChange={(e) => setMaxMileage(e.target.value)}
               className="col-span-3 md:col-span-1 w-full"
             />
             <div className="col-span-6 md:col-span-2 grid gap-1 rounded-md border border-slate-300 bg-white p-2 text-sm">
-              <p className="text-xs font-medium">Filtro de lane:</p>
+              <p className="text-xs font-medium">Lane filter:</p>
               {laneOptions.length === 0 ? (
-                <span className="text-xs text-slate-500">Sem lanes disponíveis</span>
+                <span className="text-xs text-slate-500">No lanes available</span>
               ) : (
                 laneOptions.map((lane) => (
                   <label key={lane} className="inline-flex items-center gap-2 text-xs">
@@ -439,7 +439,7 @@ export default function UpcomingAuctionPage() {
               )}
             </div>
             <p className="col-span-6 text-xs text-amber-700">
-              *Estimativa de baixa confiança (poucos comparáveis ou dados incompletos) é sinalizada em amarelo.
+              *Low-confidence estimates (few comparables or incomplete data) are highlighted in yellow.
             </p>
           </div>
         </CardContent>

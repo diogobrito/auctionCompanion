@@ -86,7 +86,7 @@ export default function ImportAuctionPage() {
     if (!currentAuction) return
 
     const confirmed = window.confirm(
-      `Excluir o leilão atual "${currentAuction.name}" e todos os veículos importados?`
+      `Delete the current auction "${currentAuction.name}" and all imported vehicles?`
     )
 
     if (!confirmed) return
@@ -102,7 +102,7 @@ export default function ImportAuctionPage() {
 
       if (auctionCarsError) {
         console.error(auctionCarsError)
-        setMessage("Erro ao localizar os carros do leilão atual.")
+        setMessage("Error locating cars from the current auction.")
         setDeleting(false)
         return
       }
@@ -117,7 +117,7 @@ export default function ImportAuctionPage() {
 
         if (inspectionsError) {
           console.error(inspectionsError)
-          setMessage("Erro ao excluir as inspeções do leilão atual.")
+          setMessage("Error deleting inspections from the current auction.")
           setDeleting(false)
           return
         }
@@ -130,7 +130,7 @@ export default function ImportAuctionPage() {
 
       if (deleteCarsError) {
         console.error(deleteCarsError)
-        setMessage("Erro ao excluir os veículos do leilão atual.")
+        setMessage("Error deleting vehicles from the current auction.")
         setDeleting(false)
         return
       }
@@ -142,7 +142,7 @@ export default function ImportAuctionPage() {
 
       if (deleteAuctionError) {
         console.error(deleteAuctionError)
-        setMessage("Erro ao excluir o leilão atual.")
+        setMessage("Error deleting the current auction.")
         setDeleting(false)
         return
       }
@@ -150,10 +150,10 @@ export default function ImportAuctionPage() {
       setCurrentAuction(null)
       setCurrentAuctionCars(0)
       setPreviewCount(0)
-      setMessage("Leilão atual excluído com sucesso. Agora você pode importar outro CSV.")
+      setMessage("Current auction deleted successfully. You can now import another CSV.")
     } catch (error) {
       console.error(error)
-      setMessage("Erro inesperado ao excluir o leilão atual.")
+      setMessage("Unexpected error while deleting the current auction.")
     } finally {
       setDeleting(false)
     }
@@ -165,7 +165,7 @@ export default function ImportAuctionPage() {
     setPreviewCount(0)
 
     if (!auctionDate) {
-      setMessage("Informe a data do leilão antes de importar o CSV.")
+      setMessage("Enter the auction date before importing the CSV.")
       setLoading(false)
       return
     }
@@ -179,7 +179,7 @@ export default function ImportAuctionPage() {
           setPreviewCount(rows.length)
 
           if (!rows.length) {
-            setMessage("CSV vazio ou sem linhas válidas.")
+            setMessage("CSV is empty or has no valid rows.")
             setLoading(false)
             return
           }
@@ -198,7 +198,7 @@ export default function ImportAuctionPage() {
 
           if (auctionError || !auctionData) {
             console.error(auctionError)
-            setMessage("Erro ao criar registro do leilão.")
+            setMessage("Error creating auction record.")
             setLoading(false)
             return
           }
@@ -240,23 +240,23 @@ export default function ImportAuctionPage() {
 
           if (carsError) {
             console.error(carsError)
-            setMessage("Erro ao inserir carros no banco.")
+            setMessage("Error inserting cars into the database.")
             setLoading(false)
             return
           }
 
-          setMessage(`Importação concluída com sucesso: ${carsToInsert.length} carros.`)
+          setMessage(`Import completed successfully: ${carsToInsert.length} cars.`)
           await loadCurrentAuction()
         } catch (err) {
           console.error(err)
-          setMessage("Erro inesperado ao importar arquivo.")
+          setMessage("Unexpected error while importing the file.")
         } finally {
           setLoading(false)
         }
       },
       error: (error) => {
         console.error(error)
-        setMessage("Erro ao ler CSV.")
+        setMessage("Error reading CSV.")
         setLoading(false)
       },
     })
@@ -265,12 +265,12 @@ export default function ImportAuctionPage() {
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <h1 className="text-2xl font-bold text-slate-900">Import Upcoming Auction</h1>
-      <p className="text-sm text-slate-600">Selecione o CSV do próximo leilão para importar os carros.</p>
+      <p className="text-sm text-slate-600">Select the next auction CSV to import the cars.</p>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div className="mb-4 space-y-2">
           <label htmlFor="auction-date" className="text-sm font-semibold text-slate-900">
-            Data do leilão
+            Auction date
           </label>
           <input
             id="auction-date"
@@ -283,18 +283,18 @@ export default function ImportAuctionPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-900">Leilão atual</p>
+            <p className="text-sm font-semibold text-slate-900">Current auction</p>
             {currentAuction ? (
               <>
                 <p className="text-sm text-slate-700">
                   {currentAuction.name} • {currentAuction.auction_date}
                 </p>
                 <p className="text-xs text-slate-500">
-                  {currentAuctionCars} veículos vinculados a este leilão.
+                  {currentAuctionCars} vehicles linked to this auction.
                 </p>
               </>
             ) : (
-              <p className="text-sm text-slate-500">Nenhum leilão presale ativo no momento.</p>
+              <p className="text-sm text-slate-500">No active presale auction at the moment.</p>
             )}
           </div>
 
@@ -304,7 +304,7 @@ export default function ImportAuctionPage() {
             onClick={() => void handleDeleteCurrentAuction()}
             disabled={!currentAuction || deleting || loading}
           >
-            {deleting ? "Excluindo..." : "Excluir leilão atual"}
+            {deleting ? "Deleting..." : "Delete current auction"}
           </Button>
         </div>
       </div>
@@ -319,8 +319,8 @@ export default function ImportAuctionPage() {
         }}
       />
 
-      {loading && <p className="text-sm text-slate-600">Importando arquivo...</p>}
-      {!!previewCount && !loading && <p className="text-sm text-slate-600">Linhas lidas: {previewCount}</p>}
+      {loading && <p className="text-sm text-slate-600">Importing file...</p>}
+      {!!previewCount && !loading && <p className="text-sm text-slate-600">Rows read: {previewCount}</p>}
       {!!message && <p className="text-sm text-slate-600">{message}</p>}
     </div>
   )

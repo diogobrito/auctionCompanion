@@ -112,7 +112,7 @@ export default function ImportHistoryPage() {
           const rows = results.data
 
           if (!rows.length) {
-            setMessage("CSV vazio ou sem linhas válidas.")
+            setMessage("CSV is empty or has no valid rows.")
             setLoading(false)
             return
           }
@@ -201,7 +201,7 @@ export default function ImportHistoryPage() {
 
           if (!validRows.length) {
             setMessage(
-              "Nenhuma linha válida encontrada. Verifique Stock, Sale Date, Year, Make, Model e Price."
+              "No valid rows found. Check Stock, Sale Date, Year, Make, Model, and Price."
             )
             setLoading(false)
             return
@@ -216,7 +216,7 @@ export default function ImportHistoryPage() {
           )
 
           if (!stocks.length) {
-            setMessage("Nenhum Stock válido encontrado para verificar duplicados.")
+            setMessage("No valid Stock found to check duplicates.")
             setLoading(false)
             return
           }
@@ -240,8 +240,8 @@ export default function ImportHistoryPage() {
                 const effectiveErrorMessage = String(existingErrorMessage).trim() ||
                   (JSON.stringify(existingError) || "")
 
-                console.error("Erro ao verificar duplicados por Stock:", existingError)
-                setMessage("Erro ao verificar duplicados: " + effectiveErrorMessage)
+                console.error("Error checking duplicates by Stock:", existingError)
+                setMessage("Error checking duplicates: " + effectiveErrorMessage)
               }
 
               // Continua sem filtro de duplicados, para não bloquear a importação.
@@ -275,7 +275,7 @@ export default function ImportHistoryPage() {
               existing: validRows.length,
               inserted: 0,
             })
-            setMessage("Todos os carros desse arquivo já existem na base.")
+            setMessage("All cars from this file already exist in the database.")
             setLoading(false)
             return
           }
@@ -297,7 +297,7 @@ export default function ImportHistoryPage() {
 
           if (auctionError || !auctionData) {
             console.error(auctionError)
-            setMessage("Erro ao criar registro do leilão histórico.")
+            setMessage("Error creating historical auction record.")
             setLoading(false)
             return
           }
@@ -321,7 +321,7 @@ export default function ImportHistoryPage() {
                 JSON.stringify(insertError)
 
               console.error(insertError)
-              setMessage("Erro ao inserir histórico: " + effectiveInsertErrorMessage)
+              setMessage("Error inserting history: " + effectiveInsertErrorMessage)
               setLoading(false)
               return
             }
@@ -332,17 +332,17 @@ export default function ImportHistoryPage() {
             existing: validRows.length - rowsToInsert.length,
             inserted: rowsToInsert.length,
           })
-          setMessage("Importação do histórico concluída com sucesso.")
+          setMessage("Historical import completed successfully.")
         } catch (err) {
           console.error(err)
-          setMessage("Erro inesperado ao importar histórico.")
+          setMessage("Unexpected error while importing history.")
         } finally {
           setLoading(false)
         }
       },
       error: (error) => {
         console.error(error)
-        setMessage("Erro ao ler o CSV.")
+        setMessage("Error reading the CSV.")
         setLoading(false)
       },
     })
@@ -352,12 +352,12 @@ export default function ImportHistoryPage() {
     <div className="mx-auto w-full max-w-4xl space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <h1 className="text-2xl font-bold text-slate-900">Import Historical Auction</h1>
       <p className="text-sm text-slate-600">
-        Importe os CSVs dos leilões passados. O sistema verifica duplicados antes
-        de inserir.
+        Import CSVs from past auctions. The system checks for duplicates before
+        inserting.
       </p>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">Data manual do leilão (opcional)</label>
+        <label className="block text-sm font-medium text-slate-700">Manual auction date (optional)</label>
         <input
           type="date"
           value={manualAuctionDate}
@@ -365,8 +365,8 @@ export default function ImportHistoryPage() {
           className="w-full rounded-md border border-slate-300 p-2 text-sm"
         />
         <p className="text-xs text-slate-500">
-          Use isso se o CSV não tiver a coluna Sale Date ou se quiser forçar a
-          data do leilão.
+          Use this if the CSV does not have the Sale Date column or if you want
+          to force the auction date.
         </p>
       </div>
 
@@ -380,15 +380,15 @@ export default function ImportHistoryPage() {
         }}
       />
 
-      {loading && <p className="mt-4 text-sm text-slate-600">Importando histórico...</p>}
+      {loading && <p className="mt-4 text-sm text-slate-600">Importing history...</p>}
 
       {message && <p className="mt-4 text-sm text-slate-600">{message}</p>}
 
       {stats && (
         <div className="mt-5 space-y-1 text-sm font-medium text-slate-700">
-          <p>Linhas lidas: {stats.read}</p>
-          <p>Já existentes: {stats.existing}</p>
-          <p>Inseridas: {stats.inserted}</p>
+          <p>Rows read: {stats.read}</p>
+          <p>Already existing: {stats.existing}</p>
+          <p>Inserted: {stats.inserted}</p>
         </div>
       )}
     </div>

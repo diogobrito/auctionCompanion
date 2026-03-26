@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setSidebarHidden(true)}
-              className="absolute right-3 top-3 rounded-md border border-slate-600 bg-slate-800 p-1 text-slate-300 transition hover:bg-slate-700 hover:text-white"
+              className="fixed left-[18.5rem] top-28 z-50 rounded-full border border-slate-300 bg-white p-2 text-slate-600 shadow-lg transition hover:bg-slate-50 hover:text-slate-900"
               aria-label="Esconder menu lateral"
               title="Esconder menu lateral"
             >
@@ -61,11 +61,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
 
         {sidebarHidden && (
-          <div className="hidden lg:flex">
+          <div className="hidden lg:block">
             <button
               type="button"
               onClick={() => setSidebarHidden(false)}
-              className="h-fit rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+              className="fixed left-6 top-28 z-50 rounded-full border border-slate-300 bg-white p-2 text-slate-600 shadow-lg transition hover:bg-slate-50 hover:text-slate-900"
               aria-label="Mostrar menu lateral"
               title="Mostrar menu lateral"
             >

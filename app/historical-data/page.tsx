@@ -87,7 +87,7 @@ async function fetchHistoricalSales(filters: HistoricalFilters, page: number) {
     if (Number.isNaN(parsedYear)) {
       return {
         data: null,
-        errorMessage: "O ano precisa ser numérico.",
+        errorMessage: "Year must be numeric.",
       }
     }
 
@@ -101,7 +101,7 @@ async function fetchHistoricalSales(filters: HistoricalFilters, page: number) {
     return {
       data: null,
       totalCount: 0,
-      errorMessage: "Erro ao consultar os dados históricos.",
+      errorMessage: "Error querying historical data.",
     }
   }
 
@@ -200,26 +200,26 @@ export default function HistoricalDataPage() {
     <div className="space-y-6">
       <PageHeader
         title="Historical Data"
-        description="Consulte os carros já vendidos em leilões passados para apoiar comparativos e decisões."
+        description="Review cars sold in past auctions to support comparisons and decisions."
         actions={
           <Button asChild>
-            <Link href="/import-history">Importar histórico</Link>
+            <Link href="/import-history">Import History</Link>
           </Button>
         }
       />
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Registros exibidos</p>
+          <p className="text-sm text-slate-500">Displayed records</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">{displayedMetrics.total}</p>
-          <p className="mt-1 text-xs text-slate-500">Pagina {currentPage} de {displayedMetrics.pageCount}</p>
+          <p className="mt-1 text-xs text-slate-500">Page {currentPage} of {displayedMetrics.pageCount}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Preço médio</p>
+          <p className="text-sm text-slate-500">Average price</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(displayedMetrics.averagePrice)}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Leilão mais recente</p>
+          <p className="text-sm text-slate-500">Most recent auction</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">{displayedMetrics.latestAuctionDate}</p>
         </div>
       </section>
@@ -236,31 +236,31 @@ export default function HistoricalDataPage() {
             <Input
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar por stock, run, make, model ou style"
+              placeholder="Search by stock, run, make, model, or style"
             />
             <Input
               value={makeFilter}
               onChange={(event) => setMakeFilter(event.target.value)}
-              placeholder="Filtrar por make"
+              placeholder="Filter by make"
             />
             <Input
               value={yearFilter}
               onChange={(event) => setYearFilter(event.target.value)}
               inputMode="numeric"
-              placeholder="Ano"
+              placeholder="Year"
             />
             <Button type="submit" className="w-full md:w-auto">
               <Search className="h-4 w-4" />
-              Consultar
+              Search
             </Button>
           </form>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500">
           <span>
-            Mostrando {sales.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
+            Showing {sales.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
             {" "}-{" "}
-            {Math.min(currentPage * PAGE_SIZE, totalCount)} de {totalCount} registros.
+            {Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount} records.
           </span>
           <button
             type="button"
@@ -276,12 +276,12 @@ export default function HistoricalDataPage() {
             }}
             className="font-medium text-slate-700 underline-offset-4 hover:underline"
           >
-            Limpar filtros
+            Clear filters
           </button>
         </div>
       </section>
 
-      {loading && <p className="rounded-md bg-slate-100 p-4 text-sm text-slate-600">Carregando histórico...</p>}
+      {loading && <p className="rounded-md bg-slate-100 p-4 text-sm text-slate-600">Loading history...</p>}
       {message && <p className="rounded-md bg-rose-50 p-4 text-sm text-rose-700">{message}</p>}
 
       {!loading && !message && (
@@ -289,10 +289,10 @@ export default function HistoricalDataPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Data</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Stock</TableHead>
                 <TableHead>Run</TableHead>
-                <TableHead>Ano</TableHead>
+                <TableHead>Year</TableHead>
                 <TableHead>Make</TableHead>
                 <TableHead>Model</TableHead>
                 <TableHead>Style</TableHead>
@@ -322,7 +322,7 @@ export default function HistoricalDataPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={11} className="py-8 text-center text-slate-500">
-                    Nenhum registro encontrado com os filtros atuais.
+                    No records found for the current filters.
                   </TableCell>
                 </TableRow>
               )}
@@ -331,7 +331,7 @@ export default function HistoricalDataPage() {
 
           <div className="mt-5 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">
-              Pagina {currentPage} de {displayedMetrics.pageCount}
+              Page {currentPage} of {displayedMetrics.pageCount}
             </p>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -341,7 +341,7 @@ export default function HistoricalDataPage() {
                 onClick={() => void loadHistoricalSales(undefined, currentPage - 1)}
                 disabled={currentPage <= 1 || loading}
               >
-                Anterior
+                Previous
               </Button>
               <Button
                 type="button"
@@ -349,7 +349,7 @@ export default function HistoricalDataPage() {
                 onClick={() => void loadHistoricalSales(undefined, currentPage + 1)}
                 disabled={currentPage >= displayedMetrics.pageCount || loading}
               >
-                Proxima
+                Next
               </Button>
             </div>
           </div>

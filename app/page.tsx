@@ -5,8 +5,8 @@ export default function Home() {
     <div className="mx-auto flex min-h-[calc(100vh-96px)] max-w-4xl flex-col justify-center gap-6 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
       <div>
         <span className="text-xs font-medium uppercase tracking-wider text-slate-500">Auction Buy Assistant</span>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">Bem-vindo ao dashboard inteligente</h1>
-        <p className="mt-2 text-slate-600">Use o menu para navegar pelos módulos: leilões, histórico, importação, estimativas e execução de pipeline.</p>
+        <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-900">Welcome to the smart dashboard</h1>
+        <p className="mt-2 text-slate-600">Use the menu to navigate through the modules: auctions, history, imports, estimates, and pipeline execution.</p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -48,18 +48,22 @@ type AuctionCar = {
   car_inspections?: CarInspection[] | null
 }
 
-type Auction = {
-  id: string
-  name: string
-  auction_date: string
-}
-
 function currency(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+function calculateAuctionFee(value: number | null) {
+  if (value === null || value === undefined) return null
+  if (value <= 1000) return 250
+  if (value <= 2000) return 350
+  if (value <= 3000) return 450
+  if (value <= 4000) return 550
+  if (value <= 5000) return 650
+  return 750
 }
 
 function displayValue(value: number | string | null | undefined) {
@@ -86,7 +90,6 @@ function sortCarsByRun(cars: AuctionCar[]) {
 }
 
 export default function DashboardPage() {
-  const [auction, setAuction] = useState<Auction | null>(null)
   const [cars, setCars] = useState<AuctionCar[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
@@ -109,18 +112,16 @@ export default function DashboardPage() {
 
     if (auctionError) {
       console.error(auctionError)
-      setMessage("Erro ao buscar o último leilão.")
+      setMessage("Error loading the latest auction.")
       setLoading(false)
       return
     }
 
     if (!latestAuction) {
-      setMessage("Nenhum leilão presale encontrado.")
+      setMessage("No presale auction found.")
       setLoading(false)
       return
     }
-
-    setAuction(latestAuction)
 
     const { data: carsData, error: carsError } = await supabase
       .from("auction_cars")
@@ -137,7 +138,7 @@ export default function DashboardPage() {
 
     if (carsError) {
       console.error(carsError)
-      setMessage("Erro ao buscar os carros do dashboard.")
+      setMessage("Error loading dashboard cars.")
       setLoading(false)
       return
     }
@@ -169,7 +170,7 @@ export default function DashboardPage() {
 
     if (error) {
       console.error(error)
-      setMessage(`Erro ao salvar os checkboxes do carro: ${error.message}`)
+      setMessage(`Error saving car checkboxes: ${error.message}`)
       setSavingField(null)
       return
     }
@@ -192,7 +193,7 @@ export default function DashboardPage() {
 
     if (error) {
       console.error(error)
-      setMessage(`Erro ao salvar as notes: ${error.message}`)
+      setMessage(`Error saving notes: ${error.message}`)
       setSavingField(null)
       return
     }
@@ -215,7 +216,7 @@ export default function DashboardPage() {
 
     if (error) {
       console.error(error)
-      setMessage(`Erro ao salvar a decision: ${error.message}`)
+      setMessage(`Error saving decision: ${error.message}`)
       setSavingField(null)
       return
     }
@@ -238,7 +239,7 @@ export default function DashboardPage() {
 
     if (error) {
       console.error(error)
-      setMessage(`Erro ao salvar o real bid: ${error.message}`)
+      setMessage(`Error saving real bid: ${error.message}`)
       setSavingField(null)
       return
     }
@@ -268,7 +269,7 @@ export default function DashboardPage() {
 
     if (error) {
       console.error(error)
-      setMessage(`Erro ao salvar a condition: ${error.message}`)
+      setMessage(`Error saving condition: ${error.message}`)
       setSavingField(null)
       return
     }
@@ -358,6 +359,10 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-slate-200 text-slate-700">
               {carsToRender.map((car) => {
                 const inspection = car.car_inspections?.[0]
+                const displayedFee =
+                  car.real_bid !== null
+                    ? calculateAuctionFee(car.real_bid)
+                    : car.auction_fee
                 return (
                   <tr
                     key={car.id}
@@ -385,7 +390,7 @@ export default function DashboardPage() {
                     <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
                     <td className="px-3 py-2">{car.inspection_checked ? "Yes" : "No"}</td>
                     <td className="px-3 py-2">{car.engine_lights_checked ? "Yes" : "No"}</td>
-                    <td className="px-3 py-2">{car.auction_fee !== null ? currency(car.auction_fee) : "-"}</td>
+                    <td className="px-3 py-2">{displayedFee !== null ? currency(displayedFee) : "-"}</td>
                   </tr>
                 )
               })}
@@ -406,7 +411,7 @@ export default function DashboardPage() {
             disabled={currentPage === 1}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Primeira
+            First
           </button>
           <button
             type="button"
@@ -414,10 +419,10 @@ export default function DashboardPage() {
             disabled={currentPage === 1}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Anterior
+            Previous
           </button>
           <span>
-            Pagina {currentPage} de {totalPages}
+            Page {currentPage} of {totalPages}
           </span>
           <button
             type="button"
@@ -425,7 +430,7 @@ export default function DashboardPage() {
             disabled={currentPage === totalPages}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Proxima
+            Next
           </button>
           <button
             type="button"
@@ -433,7 +438,7 @@ export default function DashboardPage() {
             disabled={currentPage === totalPages}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Ultima
+            Last
           </button>
         </div>
       </section>
@@ -444,11 +449,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description={
-          auction
-            ? `${auction.name} • ${auction.auction_date}`
-            : "Resumo dos dados do leilão"
-        }
+        description="Auction summary"
         actions={
           <Link href="/upcoming-auction" className="rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">
             Upcoming Auction
@@ -456,7 +457,7 @@ export default function DashboardPage() {
         }
       />
 
-      {loading && <p className="rounded-md bg-slate-100 p-4 text-sm text-slate-600">Carregando dashboard...</p>}
+      {loading && <p className="rounded-md bg-slate-100 p-4 text-sm text-slate-600">Loading dashboard...</p>}
       {message && <p className="rounded-md bg-rose-50 p-4 text-sm text-rose-700">{message}</p>}
 
       {!loading && !message && (
@@ -471,7 +472,7 @@ export default function DashboardPage() {
           {renderCarsTable(
             "Target Cars",
             paginatedTargetCars,
-            "Nenhum carro marcado como Target neste leilao.",
+            "No cars marked as Target in this auction.",
             currentTargetPage,
             targetTotalPages,
             () => setTargetPage(1),
@@ -483,7 +484,7 @@ export default function DashboardPage() {
           {renderCarsTable(
             "Maybe Cars",
             paginatedMaybeCars,
-            "Nenhum carro marcado como Maybe neste leilao.",
+            "No cars marked as Maybe in this auction.",
             currentMaybePage,
             maybeTotalPages,
             () => setMaybePage(1),
@@ -498,12 +499,12 @@ export default function DashboardPage() {
                 <SheetTitle>
                   {selectedCar
                     ? `${displayValue(selectedCar.year)} ${displayValue(selectedCar.make)} ${displayValue(selectedCar.model)}`
-                    : "Detalhes do carro"}
+                    : "Car details"}
                 </SheetTitle>
                 <SheetDescription>
                   {selectedCar
                     ? `Run ${displayValue(selectedCar.run_number)} • Lane ${displayValue(selectedCar.lane)}`
-                    : "Informacoes detalhadas do veiculo selecionado."}
+                    : "Detailed information for the selected vehicle."}
                 </SheetDescription>
               </SheetHeader>
 
@@ -578,7 +579,7 @@ export default function DashboardPage() {
                           inputMode="numeric"
                           pattern="[0-9]*"
                           defaultValue={selectedCar.real_bid ?? ""}
-                          placeholder="Informe o valor real"
+                          placeholder="Enter the real bid"
                           onInput={(event) => {
                             event.currentTarget.value = event.currentTarget.value.replace(/\D/g, "")
                           }}
@@ -592,7 +593,7 @@ export default function DashboardPage() {
                         />
                       </div>
                       {savingField && (
-                        <p className="text-xs text-slate-500">Salvando alteracao...</p>
+                        <p className="text-xs text-slate-500">Saving changes...</p>
                       )}
                     </div>
                   </section>
@@ -644,7 +645,7 @@ export default function DashboardPage() {
                       <textarea
                         className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
                         defaultValue={selectedCar.notes || ""}
-                        placeholder="Adicione observacoes sobre este carro..."
+                        placeholder="Add notes about this car..."
                         onBlur={(event) => void updateNotes(selectedCar.id, event.target.value)}
                       />
                     </div>
