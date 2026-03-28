@@ -71,21 +71,38 @@ function displayValue(value: number | string | null | undefined) {
   return value
 }
 
-function getRunSortValue(runNumber: string | null) {
-  if (!runNumber) return Number.MAX_SAFE_INTEGER
+function getRunSortParts(runNumber: string | null) {
+  if (!runNumber) {
+    return {
+      letters: "\uffff",
+      number: Number.MAX_SAFE_INTEGER,
+      raw: "",
+    }
+  }
 
-  const match = runNumber.match(/\d+/)
-  if (!match) return Number.MAX_SAFE_INTEGER
+  const normalizedRun = runNumber.trim().toUpperCase()
+  const lettersMatch = normalizedRun.match(/[A-Z]+/)
+  const numberMatch = normalizedRun.match(/\d+/)
 
-  return Number(match[0])
+  return {
+    letters: lettersMatch?.[0] || "",
+    number: numberMatch ? Number(numberMatch[0]) : Number.MAX_SAFE_INTEGER,
+    raw: normalizedRun,
+  }
 }
 
 function sortCarsByRun(cars: AuctionCar[]) {
   return [...cars].sort((a, b) => {
-    const runCompare = getRunSortValue(a.run_number) - getRunSortValue(b.run_number)
-    if (runCompare !== 0) return runCompare
+    const runA = getRunSortParts(a.run_number)
+    const runB = getRunSortParts(b.run_number)
 
-    return (a.run_number || "").localeCompare(b.run_number || "")
+    const numberCompare = runA.number - runB.number
+    if (numberCompare !== 0) return numberCompare
+
+    const letterCompare = runA.letters.localeCompare(runB.letters)
+    if (letterCompare !== 0) return letterCompare
+
+    return runA.raw.localeCompare(runB.raw)
   })
 }
 
@@ -341,19 +358,20 @@ export default function DashboardPage() {
           <table className="min-w-[1000px] divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
               <tr>
-                <th className="w-28 px-3 py-2">Run</th>
+                <th className="w-20 px-3 py-2">Run</th>
                 <th className="px-3 py-2">Year</th>
                 <th className="px-3 py-2">Make</th>
                 <th className="px-3 py-2">Model</th>
+                <th className="px-3 py-2">VIN</th>
                 <th className="px-3 py-2">Miles</th>
-                <th className="px-3 py-2">Estimated Bid</th>
-                <th className="px-3 py-2">Max Bid</th>
+                <th className="px-3 py-2">Market Estimate</th>
+                <th className="px-3 py-2">Safe Max Bid</th>
                 <th className="px-3 py-2">Real Bid</th>
-                <th className="px-3 py-2">Confidence</th>
-                <th className="px-3 py-2">Condition</th>
                 <th className="px-3 py-2">Inspection</th>
                 <th className="px-3 py-2">Engine Lights</th>
+                <th className="px-3 py-2">Condition</th>
                 <th className="px-3 py-2">Fees</th>
+                <th className="px-3 py-2">Real Bid + Fees</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-700">
@@ -363,6 +381,10 @@ export default function DashboardPage() {
                   car.real_bid !== null
                     ? calculateAuctionFee(car.real_bid)
                     : car.auction_fee
+                const realBidPlusFees =
+                  car.real_bid !== null && displayedFee !== null
+                    ? car.real_bid + displayedFee
+                    : null
                 return (
                   <tr
                     key={car.id}
@@ -378,25 +400,26 @@ export default function DashboardPage() {
                     role="button"
                     aria-label={`Ver detalhes de ${displayValue(car.year)} ${displayValue(car.make)} ${displayValue(car.model)}`}
                   >
-                    <td className="w-28 whitespace-nowrap px-3 py-2">{car.run_number || "-"}</td>
+                    <td className="w-20 whitespace-nowrap px-3 py-2">{car.run_number || "-"}</td>
                     <td className="px-3 py-2">{car.year || "-"}</td>
                     <td className="px-3 py-2">{car.make || "-"}</td>
                     <td className="px-3 py-2">{car.model || "-"}</td>
+                    <td className="px-3 py-2">{car.vin || "-"}</td>
                     <td className="px-3 py-2">{car.odometer ?? "-"}</td>
                     <td className="px-3 py-2">{car.estimated_bid ? currency(car.estimated_bid) : "-"}</td>
                     <td className="px-3 py-2">{car.suggested_max_bid ? currency(car.suggested_max_bid) : "-"}</td>
                     <td className="px-3 py-2">{car.real_bid !== null ? currency(car.real_bid) : "-"}</td>
-                    <td className="px-3 py-2">{car.confidence || "-"}</td>
-                    <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
                     <td className="px-3 py-2">{car.inspection_checked ? "Yes" : "No"}</td>
                     <td className="px-3 py-2">{car.engine_lights_checked ? "Yes" : "No"}</td>
+                    <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
                     <td className="px-3 py-2">{displayedFee !== null ? currency(displayedFee) : "-"}</td>
+                    <td className="px-3 py-2">{realBidPlusFees !== null ? currency(realBidPlusFees) : "-"}</td>
                   </tr>
                 )
               })}
               {carsToRender.length === 0 && (
                 <tr>
-                  <td colSpan={13} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={14} className="px-3 py-6 text-center text-slate-500">
                     {emptyMessage}
                   </td>
                 </tr>
@@ -496,27 +519,27 @@ export default function DashboardPage() {
           <Sheet open={selectedCar !== null} onOpenChange={(open) => !open && setSelectedCar(null)}>
             <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
               <SheetHeader>
-                <SheetTitle>
+                <SheetTitle className="text-xl">
                   {selectedCar
                     ? `${displayValue(selectedCar.year)} ${displayValue(selectedCar.make)} ${displayValue(selectedCar.model)}`
                     : "Car details"}
                 </SheetTitle>
                 <SheetDescription>
                   {selectedCar
-                    ? `Run ${displayValue(selectedCar.run_number)} • Lane ${displayValue(selectedCar.lane)}`
+                    ? ""
                     : "Detailed information for the selected vehicle."}
                 </SheetDescription>
               </SheetHeader>
 
               {selectedCar && (
-                <div className="space-y-6 px-4 pb-6">
+                <div className="space-y-4 px-3 pb-4">
                   <section className="rounded-xl border border-slate-200 bg-white">
-                    <div className="border-b border-slate-200 px-4 py-3">
-                      <h3 className="text-sm font-semibold text-slate-900">Checklist</h3>
+                    <div className="border-b border-slate-200 px-3 py-2.5">
+                      <h3 className="text-xs font-semibold text-slate-900">Checklist</h3>
                     </div>
-                    <div className="space-y-3 px-4 py-4">
+                    <div className="space-y-2.5 px-3 py-3">
                       <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <span className="text-sm font-medium text-slate-800">Inspection</span>
+                        <span className="text-xs font-medium text-slate-800">Inspection</span>
                         <input
                           type="checkbox"
                           checked={selectedCar.inspection_checked}
@@ -528,7 +551,7 @@ export default function DashboardPage() {
                         />
                       </label>
                       <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <span className="text-sm font-medium text-slate-800">Engine Lights</span>
+                        <span className="text-xs font-medium text-slate-800">Engine Lights</span>
                         <input
                           type="checkbox"
                           checked={selectedCar.engine_lights_checked}
@@ -540,9 +563,9 @@ export default function DashboardPage() {
                         />
                       </label>
                       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-sm font-medium text-slate-800">Condition</p>
+                        <p className="text-xs font-medium text-slate-800">Condition</p>
                         <select
-                          className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
+                          className="mt-1.5 w-full rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-800"
                           value={selectedInspection?.overall_condition ?? "unknown"}
                           onChange={(event) =>
                             void upsertInspectionCondition(
@@ -560,9 +583,9 @@ export default function DashboardPage() {
                         </select>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-sm font-medium text-slate-800">Decision</p>
+                        <p className="text-xs font-medium text-slate-800">Decision</p>
                         <select
-                          className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                          className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900"
                           value={selectedCar.decision ?? "Maybe"}
                           onChange={(event) => void updateDecision(selectedCar.id, event.target.value)}
                           disabled={savingField === "decision"}
@@ -573,7 +596,7 @@ export default function DashboardPage() {
                         </select>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-sm font-medium text-slate-800">Real Bid</p>
+                        <p className="text-xs font-medium text-slate-800">Real Bid</p>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -589,7 +612,7 @@ export default function DashboardPage() {
                               event.target.value.trim() === "" ? null : Number(event.target.value)
                             )
                           }
-                          className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                          className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900"
                         />
                       </div>
                       {savingField && (
@@ -598,52 +621,52 @@ export default function DashboardPage() {
                     </div>
                   </section>
 
-                  <section className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">VIN</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">{displayValue(selectedCar.vin)}</p>
+                  <section className="grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:col-span-2">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">VIN</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">{displayValue(selectedCar.vin)}</p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Odometer</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">{displayValue(selectedCar.odometer)}</p>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Odometer</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">{displayValue(selectedCar.odometer)}</p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Auction Fee</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Auction Fee</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">
                         {selectedCar.auction_fee !== null ? currency(selectedCar.auction_fee) : "-"}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Estimated Bid</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Market Estimate</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">
                         {selectedCar.estimated_bid !== null ? currency(selectedCar.estimated_bid) : "-"}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Estimated Total Cost</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Estimated Total Cost</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">
                         {selectedCar.estimated_total_cost !== null ? currency(selectedCar.estimated_total_cost) : "-"}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Suggested Max Bid</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Safe Max Bid</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">
                         {selectedCar.suggested_max_bid !== null ? currency(selectedCar.suggested_max_bid) : "-"}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Confidence</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900">{displayValue(selectedCar.confidence)}</p>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Confidence</p>
+                      <p className="mt-0.5 text-xs font-semibold text-slate-900">{displayValue(selectedCar.confidence)}</p>
                     </div>
                   </section>
 
                   <section className="rounded-xl border border-slate-200 bg-white">
-                    <div className="border-b border-slate-200 px-4 py-3">
-                      <h3 className="text-sm font-semibold text-slate-900">Notes</h3>
+                    <div className="border-b border-slate-200 px-3 py-2.5">
+                      <h3 className="text-xs font-semibold text-slate-900">Notes</h3>
                     </div>
-                    <div className="px-4 py-4">
+                    <div className="px-3 py-3">
                       <textarea
-                        className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-800"
+                        className="min-h-20 w-full rounded-md border border-slate-300 px-3 py-2 text-xs text-slate-800"
                         defaultValue={selectedCar.notes || ""}
                         placeholder="Add notes about this car..."
                         onBlur={(event) => void updateNotes(selectedCar.id, event.target.value)}
