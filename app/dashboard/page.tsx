@@ -44,6 +44,7 @@ type AuctionCar = {
   notes: string | null
   inspection_checked: boolean
   engine_lights_checked: boolean
+  dirt_checked: boolean
   notes_checked: boolean
   car_inspections?: CarInspection[] | null
 }
@@ -174,7 +175,7 @@ export default function DashboardPage() {
 
   async function updateCheckboxField(
     carId: string,
-    field: "inspection_checked" | "engine_lights_checked",
+    field: "inspection_checked" | "engine_lights_checked" | "dirt_checked",
     value: boolean
   ) {
     setSavingField(field)
@@ -369,6 +370,7 @@ export default function DashboardPage() {
                 <th className="px-3 py-2">Real Bid</th>
                 <th className="px-3 py-2">Inspection</th>
                 <th className="px-3 py-2">Engine Lights</th>
+                <th className="px-3 py-2">Dirt</th>
                 <th className="px-3 py-2">Condition</th>
                 <th className="px-3 py-2">Fees</th>
                 <th className="px-3 py-2">Real Bid + Fees</th>
@@ -385,6 +387,7 @@ export default function DashboardPage() {
                   car.real_bid !== null && displayedFee !== null
                     ? car.real_bid + displayedFee
                     : null
+                const hasNotes = Boolean(car.notes?.trim())
                 return (
                   <tr
                     key={car.id}
@@ -400,7 +403,10 @@ export default function DashboardPage() {
                     role="button"
                     aria-label={`Ver detalhes de ${displayValue(car.year)} ${displayValue(car.make)} ${displayValue(car.model)}`}
                   >
-                    <td className="w-20 whitespace-nowrap px-3 py-2">{car.run_number || "-"}</td>
+                    <td className="w-20 whitespace-nowrap px-3 py-2 font-medium">
+                      {car.run_number || "-"}
+                      {hasNotes && <span className="ml-1 text-amber-600">*</span>}
+                    </td>
                     <td className="px-3 py-2">{car.year || "-"}</td>
                     <td className="px-3 py-2">{car.make || "-"}</td>
                     <td className="px-3 py-2">{car.model || "-"}</td>
@@ -411,6 +417,7 @@ export default function DashboardPage() {
                     <td className="px-3 py-2">{car.real_bid !== null ? currency(car.real_bid) : "-"}</td>
                     <td className="px-3 py-2">{car.inspection_checked ? "Yes" : "No"}</td>
                     <td className="px-3 py-2">{car.engine_lights_checked ? "Yes" : "No"}</td>
+                    <td className="px-3 py-2">{car.dirt_checked ? "Yes" : "No"}</td>
                     <td className="px-3 py-2">{inspection?.overall_condition || "-"}</td>
                     <td className="px-3 py-2">{displayedFee !== null ? currency(displayedFee) : "-"}</td>
                     <td className="px-3 py-2">{realBidPlusFees !== null ? currency(realBidPlusFees) : "-"}</td>
@@ -419,7 +426,7 @@ export default function DashboardPage() {
               })}
               {carsToRender.length === 0 && (
                 <tr>
-                  <td colSpan={14} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={15} className="px-3 py-6 text-center text-slate-500">
                     {emptyMessage}
                   </td>
                 </tr>
@@ -517,8 +524,8 @@ export default function DashboardPage() {
           )}
 
           <Sheet open={selectedCar !== null} onOpenChange={(open) => !open && setSelectedCar(null)}>
-            <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-              <SheetHeader>
+            <SheetContent side="center" className="border-slate-200 bg-slate-50">
+              <SheetHeader className="border-b border-slate-200 bg-white pr-12">
                 <SheetTitle className="text-xl">
                   {selectedCar
                     ? `${displayValue(selectedCar.year)} ${displayValue(selectedCar.make)} ${displayValue(selectedCar.model)}`
@@ -532,12 +539,12 @@ export default function DashboardPage() {
               </SheetHeader>
 
               {selectedCar && (
-                <div className="space-y-4 px-3 pb-4">
+                <div className="space-y-4 overflow-y-auto px-4 pb-4">
                   <section className="rounded-xl border border-slate-200 bg-white">
                     <div className="border-b border-slate-200 px-3 py-2.5">
                       <h3 className="text-xs font-semibold text-slate-900">Checklist</h3>
                     </div>
-                    <div className="space-y-2.5 px-3 py-3">
+                    <div className="grid gap-2.5 px-3 py-3 sm:grid-cols-2 lg:grid-cols-3">
                       <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                         <span className="text-xs font-medium text-slate-800">Inspection</span>
                         <input
@@ -559,6 +566,18 @@ export default function DashboardPage() {
                             void updateCheckboxField(selectedCar.id, "engine_lights_checked", event.target.checked)
                           }
                           disabled={savingField === "engine_lights_checked"}
+                          className="h-4 w-4 accent-slate-900"
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="text-xs font-medium text-slate-800">Dirt</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedCar.dirt_checked}
+                          onChange={(event) =>
+                            void updateCheckboxField(selectedCar.id, "dirt_checked", event.target.checked)
+                          }
+                          disabled={savingField === "dirt_checked"}
                           className="h-4 w-4 accent-slate-900"
                         />
                       </label>
@@ -595,7 +614,7 @@ export default function DashboardPage() {
                           <option value="Avoid">Avoid</option>
                         </select>
                       </div>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 sm:col-span-2 lg:col-span-1">
                         <p className="text-xs font-medium text-slate-800">Real Bid</p>
                         <input
                           type="text"
@@ -615,14 +634,16 @@ export default function DashboardPage() {
                           className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-900"
                         />
                       </div>
-                      {savingField && (
-                        <p className="text-xs text-slate-500">Saving changes...</p>
-                      )}
                     </div>
+                    {savingField && (
+                      <div className="px-3 pb-3">
+                        <p className="text-xs text-slate-500">Saving changes...</p>
+                      </div>
+                    )}
                   </section>
 
-                  <section className="grid gap-2 sm:grid-cols-2">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:col-span-2">
+                  <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 sm:col-span-2 lg:col-span-3">
                       <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">VIN</p>
                       <p className="mt-0.5 text-xs font-semibold text-slate-900">{displayValue(selectedCar.vin)}</p>
                     </div>
