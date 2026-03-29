@@ -363,7 +363,6 @@ export default function DashboardPage() {
                 <th className="px-3 py-2">Year</th>
                 <th className="px-3 py-2">Make</th>
                 <th className="px-3 py-2">Model</th>
-                <th className="px-3 py-2">VIN</th>
                 <th className="px-3 py-2">Miles</th>
                 <th className="px-3 py-2">Market Estimate</th>
                 <th className="px-3 py-2">Safe Max Bid</th>
@@ -410,7 +409,6 @@ export default function DashboardPage() {
                     <td className="px-3 py-2">{car.year || "-"}</td>
                     <td className="px-3 py-2">{car.make || "-"}</td>
                     <td className="px-3 py-2">{car.model || "-"}</td>
-                    <td className="px-3 py-2">{car.vin || "-"}</td>
                     <td className="px-3 py-2">{car.odometer ?? "-"}</td>
                     <td className="px-3 py-2">{car.estimated_bid ? currency(car.estimated_bid) : "-"}</td>
                     <td className="px-3 py-2">{car.suggested_max_bid ? currency(car.suggested_max_bid) : "-"}</td>
@@ -426,7 +424,7 @@ export default function DashboardPage() {
               })}
               {carsToRender.length === 0 && (
                 <tr>
-                  <td colSpan={15} className="px-3 py-6 text-center text-slate-500">
+                  <td colSpan={14} className="px-3 py-6 text-center text-slate-500">
                     {emptyMessage}
                   </td>
                 </tr>
