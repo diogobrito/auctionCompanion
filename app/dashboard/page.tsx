@@ -355,9 +355,9 @@ export default function DashboardPage() {
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-lg font-semibold text-slate-900">{title}</h2>
-        <div className="overflow-x-auto">
+        <div className="max-h-[60vh] overflow-auto rounded-xl border border-slate-200">
           <table className="min-w-[1000px] divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+            <thead className="sticky top-0 z-20 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="w-20 px-3 py-2">Run</th>
                 <th className="px-3 py-2">Year</th>
@@ -701,3 +701,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+
