@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import ExcelJS from "exceljs"
 import { supabase } from "@/lib/supabase"
-import { PageHeader } from "@/components/page-header"
-import { MetricCard } from "@/components/metric-card"
+import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
@@ -14,6 +14,12 @@ import {
 } from "@/components/ui/sheet"
 
 const PAGE_SIZE = 30
+
+type Auction = {
+  id: string
+  name: string
+  auction_date: string
+}
 
 type CarInspection = {
   id?: string
@@ -72,6 +78,13 @@ function displayValue(value: number | string | null | undefined) {
   return value
 }
 
+function slugifyFilePart(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
 function getRunSortParts(runNumber: string | null) {
   if (!runNumber) {
     return {
@@ -108,6 +121,7 @@ function sortCarsByRun(cars: AuctionCar[]) {
 }
 
 export default function DashboardPage() {
+  const [auction, setAuction] = useState<Auction | null>(null)
   const [cars, setCars] = useState<AuctionCar[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
@@ -115,6 +129,7 @@ export default function DashboardPage() {
   const [savingField, setSavingField] = useState<string | null>(null)
   const [targetPage, setTargetPage] = useState(1)
   const [maybePage, setMaybePage] = useState(1)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
 
   async function loadDashboard() {
     setLoading(true)
@@ -140,6 +155,8 @@ export default function DashboardPage() {
       setLoading(false)
       return
     }
+
+    setAuction(latestAuction)
 
     const { data: carsData, error: carsError } = await supabase
       .from("auction_cars")
@@ -316,6 +333,20 @@ export default function DashboardPage() {
     }
   }, [cars])
 
+  const chartData = useMemo(() => {
+    const total = Math.max(metrics.totalCars, 1)
+    const targetAngle = (metrics.targetCount / total) * 360
+    const maybeAngle = (metrics.maybeCount / total) * 360
+    const avoidAngle = (metrics.avoidCount / total) * 360
+
+    return {
+      targetPercent: Math.round((metrics.targetCount / total) * 100),
+      maybePercent: Math.round((metrics.maybeCount / total) * 100),
+      avoidPercent: Math.round((metrics.avoidCount / total) * 100),
+      background: `conic-gradient(from 210deg, #10b981 0deg ${targetAngle}deg, #f59e0b ${targetAngle}deg ${targetAngle + maybeAngle}deg, #f43f5e ${targetAngle + maybeAngle}deg ${targetAngle + maybeAngle + avoidAngle}deg, #e2e8f0 ${targetAngle + maybeAngle + avoidAngle}deg 360deg)`,
+    }
+  }, [metrics])
+
   const targetCars = useMemo(() => {
     return sortCarsByRun(cars.filter((car) => car.decision === "Target"))
   }, [cars])
@@ -340,6 +371,73 @@ export default function DashboardPage() {
   }, [currentMaybePage, maybeCars])
 
   const selectedInspection = selectedCar?.car_inspections?.[0]
+
+  async function exportCarsToXlsx(decision: "Target" | "Maybe", carsToExport: AuctionCar[]) {
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet(decision, {
+      views: [{ state: "frozen", ySplit: 1 }],
+    })
+
+    worksheet.columns = [
+      { header: "Row", key: "row", width: 8 },
+      { header: "Num", key: "num", width: 10 },
+      { header: "Year", key: "year", width: 8 },
+      { header: "Make", key: "make", width: 16 },
+      { header: "Model", key: "model", width: 24 },
+      { header: "Mileage", key: "mileage", width: 12 },
+      { header: "VIN", key: "vin", width: 22 },
+      { header: "Inspection", key: "inspection", width: 14 },
+      { header: "Engine Lights", key: "engine_lights", width: 16 },
+      { header: "Body", key: "body", width: 14 },
+      { header: "Sugested Bid", key: "suggested_bid", width: 14 },
+      { header: "Real view", key: "real_view", width: 14 },
+    ]
+
+    const headerRow = worksheet.getRow(1)
+    headerRow.font = { bold: true }
+    headerRow.alignment = { vertical: "middle", horizontal: "center" }
+
+    carsToExport.forEach((car, index) => {
+      worksheet.addRow({
+        row: index + 1,
+        num: car.run_number || "",
+        year: car.year ?? "",
+        make: car.make || "",
+        model: car.model || "",
+        mileage: car.odometer ?? "",
+        vin: car.vin || "",
+        inspection: car.inspection_checked ? "Yes" : "",
+        engine_lights: car.engine_lights_checked ? "Yes" : "",
+        body: car.dirt_checked ? "Yes" : "",
+        suggested_bid: car.suggested_max_bid ?? "",
+        real_view: car.real_bid ?? "",
+      })
+    })
+
+    worksheet.autoFilter = {
+      from: "A1",
+      to: "L1",
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+
+    const fileParts = [
+      "dashboard",
+      decision.toLowerCase(),
+      auction?.auction_date || "",
+      auction?.name ? slugifyFilePart(auction.name) : "",
+    ].filter(Boolean)
+
+    link.href = url
+    link.download = `${fileParts.join("-") || `dashboard-${decision.toLowerCase()}`}.xlsx`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
 
   function renderCarsTable(
     title: string,
@@ -475,28 +573,111 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description="Auction summary"
-        actions={
-          <Link href="/upcoming-auction" className="rounded-md bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">
-            Upcoming Auction
-          </Link>
-        }
-      />
+      <section className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-gradient-to-br from-white via-emerald-50/60 to-amber-50/80 p-6 shadow-sm">
+        <div className="absolute -top-20 right-0 h-48 w-48 rounded-full bg-emerald-200/30 blur-3xl" />
+        <div className="absolute -bottom-16 left-10 h-40 w-40 rounded-full bg-amber-200/30 blur-3xl" />
+        <div className="relative grid gap-8 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+          <div className="space-y-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+                <p className="mt-1 text-sm text-slate-500">Auction summary</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => setExportMenuOpen((open) => !open)}
+                    disabled={targetCars.length === 0 && maybeCars.length === 0}
+                  >
+                    Export Excel
+                  </Button>
+                  {exportMenuOpen && (
+                    <div className="absolute right-0 z-30 mt-2 min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExportMenuOpen(false)
+                          void exportCarsToXlsx("Target", targetCars)
+                        }}
+                        disabled={targetCars.length === 0}
+                        className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Export Target
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExportMenuOpen(false)
+                          void exportCarsToXlsx("Maybe", maybeCars)
+                        }}
+                        disabled={maybeCars.length === 0}
+                        className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Export Maybe
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mx-auto flex max-w-4xl flex-col items-center justify-center gap-8 sm:flex-row sm:items-center sm:justify-center xl:mx-0 xl:justify-start">
+              <div
+                className="relative flex h-56 w-56 items-center justify-center rounded-full shadow-inner"
+                style={{ background: chartData.background }}
+              >
+                <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full border border-white/90 bg-white/95 text-center shadow-lg">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">Total</span>
+                  <span className="mt-1 text-4xl font-bold tracking-tight text-slate-900">{metrics.totalCars}</span>
+                  <span className="mt-1 text-xs text-slate-500">Cars in dashboard</span>
+                </div>
+              </div>
+
+              <div className="w-full max-w-xs space-y-3">
+                <div className="flex items-center justify-between rounded-2xl border border-emerald-200/70 bg-emerald-50/80 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="h-3 w-3 rounded-full bg-emerald-500 shadow-[0_0_0_5px_rgba(16,185,129,0.15)]" />
+                    <div>
+                      <p className="text-sm font-semibold text-emerald-950">Target</p>
+                      <p className="text-xs text-emerald-700">{chartData.targetPercent}% of total</p>
+                    </div>
+                  </div>
+                  <span className="text-2xl font-bold tracking-tight text-emerald-950">{metrics.targetCount}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="h-3 w-3 rounded-full bg-amber-500 shadow-[0_0_0_5px_rgba(245,158,11,0.15)]" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-950">Maybe</p>
+                      <p className="text-xs text-amber-700">{chartData.maybePercent}% of total</p>
+                    </div>
+                  </div>
+                  <span className="text-2xl font-bold tracking-tight text-amber-950">{metrics.maybeCount}</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl border border-rose-200/70 bg-rose-50/80 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="h-3 w-3 rounded-full bg-rose-500 shadow-[0_0_0_5px_rgba(244,63,94,0.14)]" />
+                    <div>
+                      <p className="text-sm font-semibold text-rose-950">Avoid</p>
+                      <p className="text-xs text-rose-700">{chartData.avoidPercent}% of total</p>
+                    </div>
+                  </div>
+                  <span className="text-2xl font-bold tracking-tight text-rose-950">{metrics.avoidCount}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {loading && <p className="rounded-md bg-slate-100 p-4 text-sm text-slate-600">Loading dashboard...</p>}
       {message && <p className="rounded-md bg-rose-50 p-4 text-sm text-rose-700">{message}</p>}
 
       {!loading && !message && (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <MetricCard title="Total Cars" value={String(metrics.totalCars)} />
-            <MetricCard title="Target" value={String(metrics.targetCount)} />
-            <MetricCard title="Maybe" value={String(metrics.maybeCount)} />
-            <MetricCard title="Avoid" value={String(metrics.avoidCount)} />
-          </div>
-
           {renderCarsTable(
             "Target Cars",
             paginatedTargetCars,

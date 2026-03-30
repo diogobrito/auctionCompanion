@@ -20,22 +20,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col w-full">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="flex w-full justify-center px-4 py-4 sm:px-6 lg:px-8">
-          <div className="text-center">
+          <Link href="/" className="text-center transition hover:opacity-90">
             <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
               Auction Buy Assistant
             </h1>
             <p className="mt-1 text-sm text-slate-500">Smart auction decisions</p>
-          </div>
+          </Link>
         </div>
       </header>
 
       <div className="flex w-full gap-4 px-2 py-4 sm:px-4 lg:px-6 xl:px-8">
         {!sidebarHidden && (
-          <aside className="relative hidden w-72 shrink-0 space-y-4 border-r border-slate-200 bg-slate-900 p-4 text-slate-100 lg:block">
+          <aside className="relative hidden w-72 shrink-0 lg:block">
+            <div className="sticky top-24 space-y-4 rounded-3xl border border-slate-800 bg-slate-900 p-4 text-slate-100 shadow-xl shadow-slate-900/15">
             <button
               type="button"
               onClick={() => setSidebarHidden(true)}
-              className="fixed left-[18.5rem] top-28 z-50 rounded-full border border-slate-300 bg-white p-2 text-slate-600 shadow-lg transition hover:bg-slate-50 hover:text-slate-900"
+              className="absolute -right-3 top-4 z-50 rounded-full border border-slate-300 bg-white p-2 text-slate-600 shadow-lg transition hover:bg-slate-50 hover:text-slate-900"
               aria-label="Esconder menu lateral"
               title="Esconder menu lateral"
             >
@@ -57,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )
               })}
             </nav>
+            </div>
           </aside>
         )}
 
