@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { CalendarRange, History, UploadCloud } from "lucide-react"
 import Papa from "papaparse"
 import { supabase } from "@/lib/supabase"
 
@@ -349,43 +350,56 @@ export default function ImportHistoryPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h1 className="text-2xl font-bold text-slate-900">Import Historical Auction</h1>
-      <p className="text-sm text-slate-600">
-        Import CSVs from past auctions. The system checks for duplicates before
-        inserting.
-      </p>
+    <div className="mx-auto w-full max-w-4xl space-y-6">
+      <section className="rounded-[30px] border border-white/80 bg-white/86 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-400 text-white shadow-lg shadow-fuchsia-200/60">
+            <History className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Import</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Import Historical Auction</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Import CSVs from past auctions. The system checks for duplicates before inserting.</p>
+          </div>
+        </div>
+      </section>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-slate-700">Manual auction date (optional)</label>
-        <input
-          type="date"
-          value={manualAuctionDate}
-          onChange={(e) => setManualAuctionDate(e.target.value)}
-          className="w-full rounded-md border border-slate-300 p-2 text-sm"
-        />
-        <p className="text-xs text-slate-500">
-          Use this if the CSV does not have the Sale Date column or if you want
-          to force the auction date.
-        </p>
+      <div className="rounded-[30px] border border-white/80 bg-white/86 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+            <CalendarRange className="h-4 w-4 text-slate-500" />
+            Manual auction date (optional)
+          </label>
+          <input
+            type="date"
+            value={manualAuctionDate}
+            onChange={(e) => setManualAuctionDate(e.target.value)}
+            className="w-full rounded-md border border-slate-300 p-2 text-sm"
+          />
+          <p className="text-xs text-slate-500">
+            Use this if the CSV does not have the Sale Date column or if you want to force the auction date.
+          </p>
+        </div>
       </div>
 
-      <input
-        type="file"
-        accept=".csv"
-        className="block w-full rounded-md border border-slate-300 bg-white p-2 text-sm text-slate-700"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) handleFileUpload(file)
-        }}
-      />
+      <div className="rounded-[30px] border border-dashed border-slate-300 bg-white/70 p-5 text-center shadow-sm">
+        <UploadCloud className="mx-auto h-8 w-8 text-slate-400" />
+        <p className="mt-3 text-sm font-medium text-slate-700">Choose a CSV file to import historical auction data.</p>
+        <input
+          type="file"
+          accept=".csv"
+          className="mt-4 block w-full rounded-md border border-slate-300 bg-white p-2 text-sm text-slate-700"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleFileUpload(file)
+          }}
+        />
+      </div>
 
-      {loading && <p className="mt-4 text-sm text-slate-600">Importing history...</p>}
-
-      {message && <p className="mt-4 text-sm text-slate-600">{message}</p>}
-
+      {loading && <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-600 shadow-sm">Importing history...</p>}
+      {message && <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-600 shadow-sm">{message}</p>}
       {stats && (
-        <div className="mt-5 space-y-1 text-sm font-medium text-slate-700">
+        <div className="rounded-[28px] border border-white/80 bg-white/86 p-5 text-sm font-medium text-slate-700 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
           <p>Rows read: {stats.read}</p>
           <p>Already existing: {stats.existing}</p>
           <p>Inserted: {stats.inserted}</p>

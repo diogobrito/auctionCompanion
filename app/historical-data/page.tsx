@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Search } from "lucide-react"
+import { CalendarClock, Database, Search, Sparkles } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { PageHeader } from "@/components/page-header"
+import { MetricCard } from "@/components/metric-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -203,28 +204,30 @@ export default function HistoricalDataPage() {
         description="Review cars sold in past auctions to support comparisons and decisions."
         actions={
           <Button asChild>
-            <Link href="/import-history">Import History</Link>
+            <Link href="/import-history">
+              <Sparkles className="h-4 w-4" />
+              Import History
+            </Link>
           </Button>
         }
       />
 
       <section className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Displayed records</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{displayedMetrics.total}</p>
-          <p className="mt-1 text-xs text-slate-500">Page {currentPage} of {displayedMetrics.pageCount}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Average price</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{formatCurrency(displayedMetrics.averagePrice)}</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Most recent auction</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{displayedMetrics.latestAuctionDate}</p>
-        </div>
+        <MetricCard title="Displayed Records" value={String(displayedMetrics.total)} hint={`Page ${currentPage} of ${displayedMetrics.pageCount}`} />
+        <MetricCard title="Average Price" value={formatCurrency(displayedMetrics.averagePrice)} />
+        <MetricCard title="Most Recent Auction" value={displayedMetrics.latestAuctionDate} />
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section className="rounded-[28px] border border-white/80 bg-white/86 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-200/60">
+            <Database className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Search History</p>
+            <p className="text-sm text-slate-600">Filter by stock, run, make, model, style, and year.</p>
+          </div>
+        </div>
         <div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto]">
           <form
             className="grid gap-3 md:col-span-4 md:grid-cols-[2fr_1fr_1fr_auto]"
@@ -256,7 +259,7 @@ export default function HistoricalDataPage() {
           </form>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-500">
           <span>
             Showing {sales.length ? (currentPage - 1) * PAGE_SIZE + 1 : 0}
             {" "}-{" "}
@@ -281,11 +284,20 @@ export default function HistoricalDataPage() {
         </div>
       </section>
 
-      {loading && <p className="rounded-md bg-slate-100 p-4 text-sm text-slate-600">Loading history...</p>}
-      {message && <p className="rounded-md bg-rose-50 p-4 text-sm text-rose-700">{message}</p>}
+      {loading && <p className="rounded-2xl bg-white/80 p-4 text-sm text-slate-600 shadow-sm">Loading history...</p>}
+      {message && <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 shadow-sm">{message}</p>}
 
       {!loading && !message && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section className="rounded-[28px] border border-white/80 bg-white/86 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-200/60">
+              <CalendarClock className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Results</p>
+              <p className="text-sm text-slate-600">Historical auction records ordered by most recent auction and price.</p>
+            </div>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -305,7 +317,7 @@ export default function HistoricalDataPage() {
             <TableBody>
               {sales.length ? (
                 sales.map((sale) => (
-                  <TableRow key={sale.id}>
+                  <TableRow key={sale.id} className="hover:bg-sky-50/35">
                     <TableCell>{sale.auction_date ?? "-"}</TableCell>
                     <TableCell>{sale.stock ?? "-"}</TableCell>
                     <TableCell>{sale.run_number ?? "-"}</TableCell>

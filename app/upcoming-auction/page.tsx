@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import ExcelJS from "exceljs"
+import { CarFront, Download, Filter, Route, Sparkles } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { findComparableSales } from "@/lib/historical-comparables"
 import { PageHeader } from "@/components/page-header"
@@ -341,10 +342,14 @@ export default function UpcomingAuctionPage() {
               onClick={exportToXlsx}
               disabled={filteredCars.length === 0}
             >
+              <Download className="h-4 w-4" />
               Export XLSX
             </Button>
             <Button asChild>
-              <Link href="/run-pipeline">Run Pipeline</Link>
+              <Link href="/run-pipeline">
+                <Sparkles className="h-4 w-4" />
+                Run Pipeline
+              </Link>
             </Button>
           </>
         }
@@ -357,12 +362,27 @@ export default function UpcomingAuctionPage() {
         <MetricCard title="Avoid Cars" value={String(metrics.avoidCount)} />
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm font-medium text-slate-700 shadow-sm">
-        Filtered cars: {filteredCars.length} of {cars.length} total
+      <div className="flex items-center gap-3 rounded-[24px] border border-white/80 bg-white/82 p-4 text-sm font-medium text-slate-700 shadow-[0_12px_30px_rgba(15,23,42,0.05)] backdrop-blur">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-400 text-white shadow-lg shadow-sky-200/60">
+          <CarFront className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Live View</p>
+          <p className="mt-1">Filtered cars: {filteredCars.length} of {cars.length} total</p>
+        </div>
       </div>
 
-      <Card>
+      <Card className="overflow-hidden rounded-[28px] border-white/80 bg-white/86 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
         <CardContent className="pt-6">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-400 text-white shadow-lg shadow-amber-200/60">
+              <Filter className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Filters</p>
+              <p className="text-sm text-slate-600">Refine by bid, mileage, year, lane, and search terms.</p>
+            </div>
+          </div>
           <div className="grid gap-3 md:grid-cols-6">
             <Input
               placeholder="Search by year, make, model..."
@@ -412,8 +432,11 @@ export default function UpcomingAuctionPage() {
               onChange={(e) => setMaxMileage(e.target.value)}
               className="col-span-3 md:col-span-1 w-full"
             />
-            <div className="col-span-6 md:col-span-2 grid gap-1 rounded-md border border-slate-300 bg-white p-2 text-sm">
-              <p className="text-xs font-medium">Lane filter:</p>
+            <div className="col-span-6 md:col-span-2 grid gap-1 rounded-2xl border border-slate-200 bg-slate-50/80 p-3 text-sm">
+              <div className="mb-1 flex items-center gap-2">
+                <Route className="h-4 w-4 text-slate-500" />
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Lane filter</p>
+              </div>
               {laneOptions.length === 0 ? (
                 <span className="text-xs text-slate-500">No lanes available</span>
               ) : (
@@ -445,17 +468,17 @@ export default function UpcomingAuctionPage() {
         </CardContent>
       </Card>
 
-      {loading && <p className="text-sm text-muted-foreground">Loading cars...</p>}
-      {message && <p className="text-sm text-red-600">{message}</p>}
+      {loading && <p className="rounded-2xl bg-white/80 p-4 text-sm text-muted-foreground shadow-sm">Loading cars...</p>}
+      {message && <p className="rounded-2xl bg-rose-50 p-4 text-sm text-red-600 shadow-sm">{message}</p>}
 
       {!loading && filteredCars.length > 0 && (
-        <Card>
+        <Card className="overflow-hidden rounded-[28px] border-white/80 bg-white/86 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
           <CardContent className="p-0">
             <div className="space-y-4">
               <div className="space-y-3 p-4 sm:hidden">
                 {filteredCars.map((car) => {
                   return (
-                    <div key={car.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <div key={car.id} className="rounded-[24px] border border-white/80 bg-white/92 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.05)]">
                       <div className="mb-2 flex items-center justify-between text-sm font-semibold">
                         <span>{car.year} {car.make} {car.model}</span>
                         <span>{car.run_number || "-"}</span>
@@ -474,9 +497,9 @@ export default function UpcomingAuctionPage() {
                 })}
               </div>
 
-              <div className="hidden sm:block overflow-x-auto pb-2">
+              <div className="hidden overflow-x-auto pb-2 sm:block">
                 <table className="w-full table-auto text-sm">
-                  <thead className="border-b bg-muted/50">
+                  <thead className="border-b bg-slate-50/90">
                   <tr className="text-left">
                     <th className="px-4 py-3 font-medium">Run</th>
                     <th className="px-4 py-3 font-medium">Vehicle</th>
@@ -497,7 +520,7 @@ export default function UpcomingAuctionPage() {
                     return (
                       <tr
                       key={car.id}
-                      className={`border-b transition-colors hover:bg-muted/40 ${car.confidence === "Low" ? "bg-amber-50/70" : ""}`}
+                      className={`border-b border-slate-100 transition-colors hover:bg-sky-50/35 ${car.confidence === "Low" ? "bg-amber-50/70" : ""}`}
                     >
                         <td className="px-4 py-3">{car.run_number}</td>
                         <td className="px-4 py-3">

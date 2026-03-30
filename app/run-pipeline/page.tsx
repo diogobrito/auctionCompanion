@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { Cog, ListChecks, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 import { findComparableSales } from "@/lib/historical-comparables"
@@ -211,10 +212,22 @@ export default function RunPipelinePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h1 className="text-2xl font-bold text-slate-900">Run Auction Pipeline</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <section className="rounded-[30px] border border-white/80 bg-white/86 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 via-sky-700 to-emerald-500 text-white shadow-lg shadow-sky-200/60">
+            <Cog className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Pipeline</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Run Auction Pipeline</h1>
+            <p className="mt-2 text-sm text-slate-600">Process the latest presale auction and calculate all key decision metrics in one run.</p>
+          </div>
+        </div>
+      </section>
 
-      <p className="text-sm text-slate-600">This will process the latest presale auction and calculate:</p>
+      <section className="rounded-[30px] border border-white/80 bg-white/86 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+      <p className="mb-4 text-sm text-slate-600">This will process the latest presale auction and calculate:</p>
 
       <ul className="list-disc pl-5 text-sm text-slate-600">
         <li>Estimated bid</li>
@@ -225,17 +238,26 @@ export default function RunPipelinePage() {
         <li>Suggested max bid</li>
       </ul>
 
-      <Button
-        onClick={runPipeline}
-        disabled={loading}
-        variant="default"
-        size="lg"
-      >
-        {loading ? "Running pipeline..." : "Run Full Pipeline"}
-      </Button>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-400 text-white shadow-lg shadow-emerald-200/60">
+            <ListChecks className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Full workflow</p>
+            <p className="text-xs text-slate-500">Estimate, fees, confidence, and max bid in a single pass.</p>
+          </div>
+        </div>
 
-      {processed > 0 && <p className="text-sm text-slate-700">Cars processed: {processed}</p>}
-      {message && <p className="text-sm text-slate-700">{message}</p>}
+        <Button onClick={runPipeline} disabled={loading} variant="default" size="lg">
+          <Sparkles className="h-4 w-4" />
+          {loading ? "Running pipeline..." : "Run Full Pipeline"}
+        </Button>
+      </div>
+
+      {processed > 0 && <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">Cars processed: {processed}</p>}
+      {message && <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{message}</p>}
+      </section>
     </div>
   )
 }

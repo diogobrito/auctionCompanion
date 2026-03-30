@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { BarChart3, SearchCode, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { supabase } from "@/lib/supabase"
 
@@ -189,24 +190,43 @@ export default function CalculateEstimatesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <h1 className="text-2xl font-bold text-slate-900">Calculate Estimates</h1>
-      <p className="text-sm text-slate-600">
-        This will calculate estimated bid, price range, and confidence for the
-        latest presale auction.
-      </p>
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <section className="rounded-[30px] border border-white/80 bg-white/86 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-400 text-white shadow-lg shadow-sky-200/60">
+            <BarChart3 className="h-6 w-6" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Valuation</p>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Calculate Estimates</h1>
+            <p className="text-sm leading-6 text-slate-600">
+              Calculate estimated bid, price range, and confidence for the latest presale auction.
+            </p>
+          </div>
+        </div>
+      </section>
 
-      <Button
-        onClick={calculateEstimates}
-        disabled={loading}
-        variant="default"
-        size="lg"
-      >
-        {loading ? "Calculating..." : "Run Estimate Calculation"}
-      </Button>
+      <section className="rounded-[30px] border border-white/80 bg-white/86 p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-400 text-white shadow-lg shadow-fuchsia-200/60">
+              <SearchCode className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Run estimate calculation</p>
+              <p className="text-xs text-slate-500">Compares current auction vehicles against historical sales to build estimates.</p>
+            </div>
+          </div>
 
-      {processed > 0 && <p className="text-sm text-slate-700">Cars processed: {processed}</p>}
-      {message && <p className="text-sm text-slate-700">{message}</p>}
+          <Button onClick={calculateEstimates} disabled={loading} variant="default" size="lg">
+            <Sparkles className="h-4 w-4" />
+            {loading ? "Calculating..." : "Run Estimate Calculation"}
+          </Button>
+        </div>
+
+        {processed > 0 && <p className="mt-5 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">Cars processed: {processed}</p>}
+        {message && <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">{message}</p>}
+      </section>
     </div>
   )
 }
