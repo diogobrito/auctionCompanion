@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import ExcelJS from "exceljs"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,8 @@ import {
 } from "@/components/ui/sheet"
 
 const PAGE_SIZE = 30
+
+type DashboardView = "Target" | "Maybe" | "Avoid"
 
 type Auction = {
   id: string
@@ -120,16 +123,44 @@ function sortCarsByRun(cars: AuctionCar[]) {
   })
 }
 
+const dashboardViews: Record<
+  DashboardView,
+  {
+    href: string
+    title: string
+    description: string
+    emptyMessage: string
+  }
+> = {
+  Target: {
+    href: "/dashboard",
+    title: "Target Cars",
+    description: "Primary list loaded directly on the dashboard.",
+    emptyMessage: "No cars marked as Target in this auction.",
+  },
+  Maybe: {
+    href: "/dashboard?view=maybe",
+    title: "Maybe Cars",
+    description: "Cars worth revisiting before bidding.",
+    emptyMessage: "No cars marked as Maybe in this auction.",
+  },
+  Avoid: {
+    href: "/dashboard?view=avoid",
+    title: "Avoid Cars",
+    description: "Cars already flagged to skip.",
+    emptyMessage: "No cars marked as Avoid in this auction.",
+  },
+}
+
 export default function DashboardPage() {
+  const searchParams = useSearchParams()
   const [auction, setAuction] = useState<Auction | null>(null)
   const [cars, setCars] = useState<AuctionCar[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState("")
   const [selectedCar, setSelectedCar] = useState<AuctionCar | null>(null)
   const [savingField, setSavingField] = useState<string | null>(null)
-  const [targetPage, setTargetPage] = useState(1)
-  const [maybePage, setMaybePage] = useState(1)
-  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [page, setPage] = useState(1)
 
   async function loadDashboard() {
     setLoading(true)
@@ -347,32 +378,29 @@ export default function DashboardPage() {
     }
   }, [metrics])
 
-  const targetCars = useMemo(() => {
-    return sortCarsByRun(cars.filter((car) => car.decision === "Target"))
-  }, [cars])
+  const currentView = useMemo<DashboardView>(() => {
+    const viewParam = searchParams.get("view")
 
-  const maybeCars = useMemo(() => {
-    return sortCarsByRun(cars.filter((car) => car.decision === "Maybe"))
-  }, [cars])
+    if (viewParam === "maybe") return "Maybe"
+    if (viewParam === "avoid") return "Avoid"
+    return "Target"
+  }, [searchParams])
 
-  const targetTotalPages = Math.max(1, Math.ceil(targetCars.length / PAGE_SIZE))
-  const maybeTotalPages = Math.max(1, Math.ceil(maybeCars.length / PAGE_SIZE))
-  const currentTargetPage = Math.min(targetPage, targetTotalPages)
-  const currentMaybePage = Math.min(maybePage, maybeTotalPages)
+  const visibleCars = useMemo(() => {
+    return sortCarsByRun(cars.filter((car) => car.decision === currentView))
+  }, [cars, currentView])
 
-  const paginatedTargetCars = useMemo(() => {
-    const start = (currentTargetPage - 1) * PAGE_SIZE
-    return targetCars.slice(start, start + PAGE_SIZE)
-  }, [currentTargetPage, targetCars])
+  const totalPages = Math.max(1, Math.ceil(visibleCars.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
 
-  const paginatedMaybeCars = useMemo(() => {
-    const start = (currentMaybePage - 1) * PAGE_SIZE
-    return maybeCars.slice(start, start + PAGE_SIZE)
-  }, [currentMaybePage, maybeCars])
+  const paginatedCars = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE
+    return visibleCars.slice(start, start + PAGE_SIZE)
+  }, [currentPage, visibleCars])
 
   const selectedInspection = selectedCar?.car_inspections?.[0]
 
-  async function exportCarsToXlsx(decision: "Target" | "Maybe", carsToExport: AuctionCar[]) {
+  async function exportCarsToXlsx(decision: DashboardView, carsToExport: AuctionCar[]) {
     const workbook = new ExcelJS.Workbook()
     const worksheet = workbook.addWorksheet(decision, {
       views: [{ state: "frozen", ySplit: 1 }],
@@ -439,20 +467,15 @@ export default function DashboardPage() {
     window.URL.revokeObjectURL(url)
   }
 
-  function renderCarsTable(
-    title: string,
-    carsToRender: AuctionCar[],
-    emptyMessage: string,
-    currentPage: number,
-    totalPages: number,
-    onFirstPage: () => void,
-    onPreviousPage: () => void,
-    onNextPage: () => void,
-    onLastPage: () => void
-  ) {
+  function renderCarsTable() {
+    const currentList = dashboardViews[currentView]
+
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">{title}</h2>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-slate-900">{currentList.title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{currentList.description}</p>
+        </div>
         <div className="max-h-[60vh] overflow-auto rounded-xl border border-slate-200">
           <table className="min-w-[1000px] divide-y divide-slate-200 text-sm">
             <thead className="sticky top-0 z-20 bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
@@ -474,7 +497,7 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-700">
-              {carsToRender.map((car) => {
+              {paginatedCars.map((car) => {
                 const inspection = car.car_inspections?.[0]
                 const displayedFee =
                   car.real_bid !== null
@@ -520,10 +543,10 @@ export default function DashboardPage() {
                   </tr>
                 )
               })}
-              {carsToRender.length === 0 && (
+              {paginatedCars.length === 0 && (
                 <tr>
                   <td colSpan={14} className="px-3 py-6 text-center text-slate-500">
-                    {emptyMessage}
+                    {currentList.emptyMessage}
                   </td>
                 </tr>
               )}
@@ -533,7 +556,7 @@ export default function DashboardPage() {
         <div className="mt-4 flex items-center justify-center gap-2 text-sm text-slate-600">
           <button
             type="button"
-            onClick={onFirstPage}
+            onClick={() => setPage(1)}
             disabled={currentPage === 1}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -541,7 +564,7 @@ export default function DashboardPage() {
           </button>
           <button
             type="button"
-            onClick={onPreviousPage}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
             disabled={currentPage === 1}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -552,7 +575,7 @@ export default function DashboardPage() {
           </span>
           <button
             type="button"
-            onClick={onNextPage}
+            onClick={() => setPage((value) => Math.min(totalPages, value + 1))}
             disabled={currentPage === totalPages}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -560,7 +583,7 @@ export default function DashboardPage() {
           </button>
           <button
             type="button"
-            onClick={onLastPage}
+            onClick={() => setPage(totalPages)}
             disabled={currentPage === totalPages}
             className="rounded-md border border-slate-300 px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -585,43 +608,34 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => setExportMenuOpen((open) => !open)}
-                    disabled={targetCars.length === 0 && maybeCars.length === 0}
-                  >
-                    Export Excel
-                  </Button>
-                  {exportMenuOpen && (
-                    <div className="absolute right-0 z-30 mt-2 min-w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExportMenuOpen(false)
-                          void exportCarsToXlsx("Target", targetCars)
-                        }}
-                        disabled={targetCars.length === 0}
-                        className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Export Target
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExportMenuOpen(false)
-                          void exportCarsToXlsx("Maybe", maybeCars)
-                        }}
-                        disabled={maybeCars.length === 0}
-                        className="flex w-full rounded-lg px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Export Maybe
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => void exportCarsToXlsx(currentView, visibleCars)}
+                  disabled={visibleCars.length === 0}
+                >
+                  Export {currentView}
+                </Button>
               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {(["Target", "Maybe", "Avoid"] as DashboardView[]).map((view) => {
+                const isActive = view === currentView
+                return (
+                  <Link
+                    key={view}
+                    href={dashboardViews[view].href}
+                    className={`inline-flex items-center rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                      isActive
+                        ? "bg-slate-900 text-white shadow-lg shadow-slate-300"
+                        : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {view}
+                  </Link>
+                )
+              })}
             </div>
 
             <div className="mx-auto flex max-w-4xl flex-col items-center justify-center gap-8 sm:flex-row sm:items-center sm:justify-center xl:mx-0 xl:justify-start">
@@ -678,29 +692,7 @@ export default function DashboardPage() {
 
       {!loading && !message && (
         <>
-          {renderCarsTable(
-            "Target Cars",
-            paginatedTargetCars,
-            "No cars marked as Target in this auction.",
-            currentTargetPage,
-            targetTotalPages,
-            () => setTargetPage(1),
-            () => setTargetPage((page) => Math.max(1, page - 1)),
-            () => setTargetPage((page) => Math.min(targetTotalPages, page + 1)),
-            () => setTargetPage(targetTotalPages)
-          )}
-
-          {renderCarsTable(
-            "Maybe Cars",
-            paginatedMaybeCars,
-            "No cars marked as Maybe in this auction.",
-            currentMaybePage,
-            maybeTotalPages,
-            () => setMaybePage(1),
-            () => setMaybePage((page) => Math.max(1, page - 1)),
-            () => setMaybePage((page) => Math.min(maybeTotalPages, page + 1)),
-            () => setMaybePage(maybeTotalPages)
-          )}
+          {renderCarsTable()}
 
           <Sheet open={selectedCar !== null} onOpenChange={(open) => !open && setSelectedCar(null)}>
             <SheetContent side="center" className="border-slate-200 bg-slate-50">
